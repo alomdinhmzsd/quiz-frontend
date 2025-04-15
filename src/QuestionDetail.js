@@ -13,9 +13,11 @@ import {
   Paper,
   LinearProgress,
   Divider,
+  IconButton,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
 
 export default function QuestionDetail() {
   const { id } = useParams();
@@ -35,23 +37,24 @@ export default function QuestionDetail() {
       try {
         setLoading(true);
         setError(null);
+        setSelected('');
+        setSubmitted(false);
+        setIsCorrect(false);
 
-        // Fetch all questions to calculate progress
-        const allQuestionsRes = await axios.get('/api/questions');
+        const [allQuestionsRes, questionRes] = await Promise.all([
+          axios.get('/api/questions'),
+          axios.get(`/api/questions/${id}`),
+        ]);
+
+        if (!questionRes.data) throw new Error('Question not found');
+
         const allQuestions = allQuestionsRes.data;
-        setTotalQuestions(allQuestions.length);
-
-        // Find current question index
         const currentIndex = allQuestions.findIndex((q) => q._id === id);
-        if (currentIndex === -1) {
-          throw new Error('Question not found in list');
-        }
+        if (currentIndex === -1) throw new Error('Question not in list');
+
+        setTotalQuestions(allQuestions.length);
         setQuestionNumber(currentIndex + 1);
         setProgress(((currentIndex + 1) / allQuestions.length) * 100);
-
-        // Fetch current question details
-        const questionRes = await axios.get(`/api/questions/${id}`);
-        if (!questionRes.data) throw new Error('Empty response');
 
         setQuestion({
           ...questionRes.data,
@@ -60,9 +63,20 @@ export default function QuestionDetail() {
             _id: a._id.toString(),
           })),
         });
+
+        // Load saved answer if exists
+        const savedAnswers = JSON.parse(
+          localStorage.getItem('quizAnswers') || '{}'
+        );
+        if (savedAnswers[id]) {
+          setSelected(savedAnswers[id].selected);
+          setSubmitted(savedAnswers[id].submitted);
+          setIsCorrect(savedAnswers[id].isCorrect);
+        }
       } catch (err) {
-        console.error('Error fetching question:', err);
+        console.error('Error:', err);
         setError(err.response?.data?.message || err.message);
+        setQuestion(null);
       } finally {
         setLoading(false);
       }
@@ -72,9 +86,18 @@ export default function QuestionDetail() {
   }, [id]);
 
   const handleSubmit = () => {
+    if (!question) return;
+
     const correctAnswer = question.answers.find((a) => a.isCorrect);
-    setIsCorrect(selected === correctAnswer._id);
+    const correct = selected === correctAnswer?._id;
+    setIsCorrect(correct);
     setSubmitted(true);
+
+    const savedAnswers = JSON.parse(
+      localStorage.getItem('quizAnswers') || '{}'
+    );
+    savedAnswers[id] = { selected, submitted: true, isCorrect: correct };
+    localStorage.setItem('quizAnswers', JSON.stringify(savedAnswers));
   };
 
   const handleNextQuestion = async () => {
@@ -87,9 +110,26 @@ export default function QuestionDetail() {
         navigate('/');
       }
     } catch (err) {
-      console.error('Error fetching next question:', err);
+      console.error('Error:', err);
       setError('Failed to load next question');
     }
+  };
+
+  const resetQuestion = () => {
+    setSelected('');
+    setSubmitted(false);
+    setIsCorrect(false);
+
+    const savedAnswers = JSON.parse(
+      localStorage.getItem('quizAnswers') || '{}'
+    );
+    delete savedAnswers[id];
+    localStorage.setItem('quizAnswers', JSON.stringify(savedAnswers));
+  };
+
+  const resetAllAnswers = () => {
+    localStorage.removeItem('quizAnswers');
+    window.location.reload();
   };
 
   if (loading) {
@@ -122,16 +162,24 @@ export default function QuestionDetail() {
 
   return (
     <Container maxWidth='md' sx={{ py: 4 }}>
-      {/* Progress bar */}
-      <Box sx={{ width: '100%', mb: 3 }}>
-        <Typography variant='body2' color='text.secondary' sx={{ mb: 1 }}>
-          Question {questionNumber} of {totalQuestions}
-        </Typography>
-        <LinearProgress
-          variant='determinate'
-          value={progress}
-          sx={{ height: 8, borderRadius: 4 }}
-        />
+      {/* Progress bar and reset button */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+        <Box sx={{ width: '80%' }}>
+          <Typography variant='body2' color='text.secondary' sx={{ mb: 1 }}>
+            Question {questionNumber} of {totalQuestions}
+          </Typography>
+          <LinearProgress
+            variant='determinate'
+            value={progress}
+            sx={{ height: 8, borderRadius: 4 }}
+          />
+        </Box>
+        <IconButton
+          onClick={resetAllAnswers}
+          title='Reset all answers'
+          color='error'>
+          <RestartAltIcon />
+        </IconButton>
       </Box>
 
       {/* Back button */}
@@ -142,24 +190,25 @@ export default function QuestionDetail() {
         Back to Questions
       </Button>
 
-      {/* Question */}
-      <Paper sx={{ p: 3, mb: 3, backgroundColor: 'background.paper' }}>
+      {/* Question - Safely accessed after null check */}
+      <Paper sx={{ p: 3, mb: 3 }}>
         <Typography
-          variant='h5'
+          variant='h6'
           gutterBottom
           sx={{
             fontWeight: 500,
             lineHeight: 1.5,
             whiteSpace: 'pre-wrap',
             mb: 3,
+            fontSize: '1.1rem',
           }}>
-          {question.questionId}: {question.question}
+          {question?.questionId}: {question?.question}
         </Typography>
 
         <Divider sx={{ my: 2 }} />
 
         {/* Answers */}
-        {question.answers.map((answer) => (
+        {question?.answers?.map((answer) => (
           <Paper
             key={answer._id}
             sx={{
@@ -167,20 +216,20 @@ export default function QuestionDetail() {
               mb: 2,
               backgroundColor: submitted
                 ? answer.isCorrect
-                  ? 'rgba(46, 125, 50, 0.3)' // More visible green
+                  ? 'rgba(46, 125, 50, 0.3)'
                   : selected === answer._id
-                  ? 'rgba(211, 47, 47, 0.3)' // More visible red
+                  ? 'rgba(211, 47, 47, 0.3)'
                   : 'background.paper'
                 : 'background.paper',
               border:
                 submitted && answer.isCorrect
                   ? '2px solid #2e7d32'
                   : '1px solid rgba(255, 255, 255, 0.12)',
-              cursor: submitted ? 'default' : 'pointer',
+              cursor: !submitted ? 'pointer' : 'default',
               '&:hover': {
-                backgroundColor: submitted
-                  ? undefined
-                  : 'rgba(255, 255, 255, 0.08)',
+                backgroundColor: !submitted
+                  ? 'rgba(255, 255, 255, 0.08)'
+                  : undefined,
               },
             }}
             onClick={() => !submitted && setSelected(answer._id)}>
@@ -203,6 +252,7 @@ export default function QuestionDetail() {
                       submitted && answer.isCorrect
                         ? '#2e7d32'
                         : 'text.primary',
+                    fontSize: '0.95rem',
                   }}>
                   {answer.text}
                 </Typography>
@@ -217,6 +267,7 @@ export default function QuestionDetail() {
                   mt: 1,
                   color: answer.isCorrect ? 'success.main' : 'error.main',
                   fontStyle: 'italic',
+                  fontSize: '0.9rem',
                 }}>
                 {answer.explanation}
               </Typography>
@@ -231,31 +282,29 @@ export default function QuestionDetail() {
           display: 'flex',
           justifyContent: 'space-between',
           mt: 3,
+          gap: 2,
         }}>
         {!submitted ? (
           <Button
             variant='contained'
             onClick={handleSubmit}
             disabled={!selected}
-            sx={{ minWidth: 120 }}>
-            Submit
+            sx={{ flex: 1 }}>
+            Submit Answer
           </Button>
         ) : (
-          <Alert
-            severity={isCorrect ? 'success' : 'error'}
-            sx={{ flexGrow: 1, mr: 2 }}>
-            {isCorrect ? 'Correct!' : 'Incorrect - Please try again'}
-          </Alert>
-        )}
-
-        {submitted && (
-          <Button
-            variant='contained'
-            endIcon={<NavigateNextIcon />}
-            onClick={handleNextQuestion}
-            sx={{ minWidth: 120 }}>
-            Next
-          </Button>
+          <>
+            <Button variant='outlined' onClick={resetQuestion} sx={{ flex: 1 }}>
+              Try Again
+            </Button>
+            <Button
+              variant='contained'
+              endIcon={<NavigateNextIcon />}
+              onClick={handleNextQuestion}
+              sx={{ flex: 1 }}>
+              Next Question
+            </Button>
+          </>
         )}
       </Box>
     </Container>
