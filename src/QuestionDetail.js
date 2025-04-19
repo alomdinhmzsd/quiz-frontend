@@ -14,6 +14,8 @@ import {
   LinearProgress,
   Divider,
   IconButton,
+  Chip,
+  Link,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
@@ -199,11 +201,50 @@ export default function QuestionDetail() {
             fontWeight: 500,
             lineHeight: 1.5,
             whiteSpace: 'pre-wrap',
-            mb: 3,
+            mb: 2,
             fontSize: '1.1rem',
           }}>
           {question?.questionId}: {question?.question}
+          <Chip
+            label={question.domain}
+            size='small'
+            sx={{ ml: 2, verticalAlign: 'middle' }}
+          />
         </Typography>
+
+        {/* Display image if exists */}
+        {question.image && (
+          <Box
+            component='img'
+            src={`/images/${question.image}`}
+            alt='Question illustration'
+            sx={{
+              maxWidth: '100%',
+              height: 'auto',
+              display: 'block',
+              margin: '0 auto',
+              mb: 3,
+              borderRadius: 1,
+              boxShadow: 1,
+            }}
+          />
+        )}
+
+        {/* Display reference if exists */}
+        {question.reference && (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant='body2' color='text.secondary'>
+              Reference:{' '}
+              <Link
+                href={question.reference}
+                target='_blank'
+                rel='noopener noreferrer'
+                sx={{ color: 'primary.main' }}>
+                {question.reference}
+              </Link>
+            </Typography>
+          </Box>
+        )}
 
         <Divider sx={{ my: 2 }} />
 

@@ -15,6 +15,7 @@ function App() {
         <Routes>
           <Route path='/' element={<QuestionList />} />
           <Route path='/questions/:id' element={<QuestionDetail />} />
+          <Route path='/domain/:domainName' element={<QuestionList />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>
