@@ -17,8 +17,11 @@ import {
   FormControl,
   InputLabel,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import { motion } from 'framer-motion';
+import SortIcon from '@mui/icons-material/Sort';
 
 export default function QuestionList() {
   const { domainName } = useParams();
@@ -29,6 +32,7 @@ export default function QuestionList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [domainFilter, setDomainFilter] = useState(domainName || 'all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [sortOrder, setSortOrder] = useState('asc');
 
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -59,20 +63,34 @@ export default function QuestionList() {
       filtered = filtered.filter((q) => q.type === typeFilter);
     }
 
-    // Apply search filter
+    // Apply search filter with questionId support
     if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (q) =>
+      const term = searchTerm.toLowerCase().trim();
+      const isQuestionIdSearch = term.match(/^saa-q\d{3,4}$/i);
+
+      filtered = filtered.filter((q) => {
+        if (isQuestionIdSearch) {
+          return q.questionId.toLowerCase() === term;
+        }
+        return (
           q.question.toLowerCase().includes(term) ||
-          q.answers.some((a) => a.text.toLowerCase().includes(term))
-      );
+          q.answers.some((a) => a.text.toLowerCase().includes(term)) ||
+          q.questionId.toLowerCase().includes(term)
+        );
+      });
     }
 
-    setFilteredQuestions(filtered);
-  }, [questions, domainFilter, typeFilter, searchTerm]);
+    // Apply sorting
+    filtered.sort((a, b) => {
+      const numA = parseInt(a.questionId.replace(/saa-q/gi, ''));
+      const numB = parseInt(b.questionId.replace(/saa-q/gi, ''));
+      return sortOrder === 'asc' ? numA - numB : numB - numA;
+    });
 
-  // Get unique domains for filter dropdown
+    setFilteredQuestions(filtered);
+  }, [questions, domainFilter, typeFilter, searchTerm, sortOrder]);
+
+  // Get unique domains and question types
   const domains = [...new Set(questions.map((q) => q.domain))].filter(Boolean);
   const questionTypes = ['single', 'multi'];
 
@@ -110,12 +128,13 @@ export default function QuestionList() {
       {/* Filter controls */}
       <Stack direction='row' spacing={2} sx={{ mb: 4 }} alignItems='center'>
         <TextField
-          label='Search questions'
+          label='Search questions or IDs'
           variant='outlined'
           size='small'
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           sx={{ flex: 2 }}
+          placeholder='Search text or saa-Q001'
         />
 
         <FormControl sx={{ minWidth: 180 }} size='small'>
@@ -147,8 +166,22 @@ export default function QuestionList() {
             ))}
           </Select>
         </FormControl>
+
+        <ToggleButtonGroup
+          value={sortOrder}
+          exclusive
+          onChange={(e, newOrder) => newOrder && setSortOrder(newOrder)}
+          size='small'>
+          <ToggleButton value='asc' aria-label='Sort ascending'>
+            <SortIcon sx={{ transform: 'rotate(180deg)' }} />
+          </ToggleButton>
+          <ToggleButton value='desc' aria-label='Sort descending'>
+            <SortIcon />
+          </ToggleButton>
+        </ToggleButtonGroup>
       </Stack>
 
+      {/* Question list */}
       {filteredQuestions.length === 0 ? (
         <Alert severity='info'>No questions match your filters</Alert>
       ) : (
@@ -157,12 +190,12 @@ export default function QuestionList() {
             key={question._id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}>
+            transition={{ delay: index * 0.05 }}>
             <Card sx={{ mb: 3 }}>
               <CardContent>
                 <Typography variant='h6' gutterBottom>
                   {question.questionId}: {question.question.substring(0, 100)}
-                  ...
+                  {question.question.length > 100 && '...'}
                 </Typography>
                 <Stack direction='row' spacing={1} sx={{ mb: 2 }}>
                   <Chip label={question.domain} size='small' />

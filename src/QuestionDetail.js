@@ -6,6 +6,7 @@ import {
   Typography,
   Button,
   Radio,
+  Checkbox,
   FormControlLabel,
   Box,
   Alert,
@@ -16,10 +17,20 @@ import {
   IconButton,
   Chip,
   Link,
+  TextField,
+  Tooltip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Stack,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
 export default function QuestionDetail() {
   const { id } = useParams();
@@ -33,6 +44,10 @@ export default function QuestionDetail() {
   const [progress, setProgress] = useState(0);
   const [questionNumber, setQuestionNumber] = useState(0);
   const [totalQuestions, setTotalQuestions] = useState(0);
+  const [allQuestions, setAllQuestions] = useState([]);
+  const [jumpToId, setJumpToId] = useState('');
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -45,18 +60,27 @@ export default function QuestionDetail() {
 
         const [allQuestionsRes, questionRes] = await Promise.all([
           axios.get('/api/questions'),
-          axios.get(`/api/questions/${id}`),
+          axios.get(`/api/questions/${id}`).catch(async () => {
+            // If not found by _id, try by questionId
+            return axios.get(`/api/questions/${id}`, {
+              params: { questionId: id },
+            });
+          }),
         ]);
 
-        if (!questionRes.data) throw new Error('Question not found');
+        if (!questionRes?.data) throw new Error('Question not found');
 
-        const allQuestions = allQuestionsRes.data;
-        const currentIndex = allQuestions.findIndex((q) => q._id === id);
+        const questions = allQuestionsRes.data;
+        const currentIndex = questions.findIndex(
+          (q) => q._id === id || q.questionId.toLowerCase() === id.toLowerCase()
+        );
+
         if (currentIndex === -1) throw new Error('Question not in list');
 
-        setTotalQuestions(allQuestions.length);
+        setAllQuestions(questions);
+        setTotalQuestions(questions.length);
         setQuestionNumber(currentIndex + 1);
-        setProgress(((currentIndex + 1) / allQuestions.length) * 100);
+        setProgress(((currentIndex + 1) / questions.length) * 100);
 
         setQuestion({
           ...questionRes.data,
@@ -68,12 +92,13 @@ export default function QuestionDetail() {
 
         // Load saved answer if exists
         const savedAnswers = JSON.parse(
-          localStorage.getItem('quizAnswers') || '{}'
+          localStorage.getItem('quizAnswers') || {}
         );
-        if (savedAnswers[id]) {
-          setSelected(savedAnswers[id].selected);
-          setSubmitted(savedAnswers[id].submitted);
-          setIsCorrect(savedAnswers[id].isCorrect);
+        const questionKey = questionRes.data._id;
+        if (savedAnswers[questionKey]) {
+          setSelected(savedAnswers[questionKey].selected);
+          setSubmitted(savedAnswers[questionKey].submitted);
+          setIsCorrect(savedAnswers[questionKey].isCorrect);
         }
       } catch (err) {
         console.error('Error:', err);
@@ -91,29 +116,72 @@ export default function QuestionDetail() {
     if (!question) return;
 
     const correctAnswer = question.answers.find((a) => a.isCorrect);
-    const correct = selected === correctAnswer?._id;
+    const correct =
+      question.type === 'single'
+        ? selected === correctAnswer?._id
+        : JSON.stringify(selected.sort()) ===
+          JSON.stringify(
+            question.answers
+              .filter((a) => a.isCorrect)
+              .map((a) => a._id)
+              .sort()
+          );
+
     setIsCorrect(correct);
     setSubmitted(true);
 
     const savedAnswers = JSON.parse(
       localStorage.getItem('quizAnswers') || '{}'
     );
-    savedAnswers[id] = { selected, submitted: true, isCorrect: correct };
+    savedAnswers[question._id] = {
+      selected,
+      submitted: true,
+      isCorrect: correct,
+      timestamp: new Date().toISOString(),
+    };
     localStorage.setItem('quizAnswers', JSON.stringify(savedAnswers));
   };
 
-  const handleNextQuestion = async () => {
-    try {
-      const res = await axios.get('/api/questions');
-      const currentIndex = res.data.findIndex((q) => q._id === id);
-      if (currentIndex < res.data.length - 1) {
-        navigate(`/questions/${res.data[currentIndex + 1]._id}`);
-      } else {
-        navigate('/');
+  const handleAnswerSelect = (answerId) => {
+    if (submitted) return;
+
+    if (question.type === 'single') {
+      setSelected(answerId);
+    } else {
+      setSelected((prev) =>
+        prev.includes(answerId)
+          ? prev.filter((id) => id !== answerId)
+          : [...prev, answerId]
+      );
+    }
+  };
+
+  const navigateToQuestion = (offset) => {
+    const currentIndex = allQuestions.findIndex(
+      (q) => q._id === id || q.questionId.toLowerCase() === id.toLowerCase()
+    );
+    if (currentIndex >= 0) {
+      const newIndex = currentIndex + offset;
+      if (newIndex >= 0 && newIndex < allQuestions.length) {
+        navigate(`/questions/${allQuestions[newIndex]._id}`);
       }
-    } catch (err) {
-      console.error('Error:', err);
-      setError('Failed to load next question');
+    }
+  };
+
+  const handleJumpToQuestion = () => {
+    if (!jumpToId) return;
+
+    // Try to find by questionId first
+    const foundQuestion = allQuestions.find(
+      (q) => q.questionId.toLowerCase() === jumpToId.toLowerCase().trim()
+    );
+
+    if (foundQuestion) {
+      navigate(`/questions/${foundQuestion._id}`);
+      setJumpToId('');
+    } else {
+      setError(`Question with ID ${jumpToId} not found`);
+      setTimeout(() => setError(null), 3000);
     }
   };
 
@@ -125,13 +193,25 @@ export default function QuestionDetail() {
     const savedAnswers = JSON.parse(
       localStorage.getItem('quizAnswers') || '{}'
     );
-    delete savedAnswers[id];
+    delete savedAnswers[question._id];
     localStorage.setItem('quizAnswers', JSON.stringify(savedAnswers));
   };
 
   const resetAllAnswers = () => {
     localStorage.removeItem('quizAnswers');
     window.location.reload();
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && jumpToId) {
+      handleJumpToQuestion();
+    }
+    // Arrow key navigation
+    if (e.key === 'ArrowLeft') {
+      navigateToQuestion(-1);
+    } else if (e.key === 'ArrowRight') {
+      navigateToQuestion(1);
+    }
   };
 
   if (loading) {
@@ -176,13 +256,35 @@ export default function QuestionDetail() {
             sx={{ height: 8, borderRadius: 4 }}
           />
         </Box>
-        <IconButton
-          onClick={resetAllAnswers}
-          title='Reset all answers'
-          color='error'>
-          <RestartAltIcon />
-        </IconButton>
+        <Tooltip title='Reset all progress'>
+          <IconButton onClick={() => setShowResetDialog(true)} color='error'>
+            <RestartAltIcon />
+          </IconButton>
+        </Tooltip>
       </Box>
+
+      {/* Reset confirmation dialog */}
+      <Dialog open={showResetDialog} onClose={() => setShowResetDialog(false)}>
+        <DialogTitle>Reset All Progress?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will clear all your saved answers and progress. This action
+            cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowResetDialog(false)}>Cancel</Button>
+          <Button
+            onClick={() => {
+              resetAllAnswers();
+              setShowResetDialog(false);
+            }}
+            color='error'
+            variant='contained'>
+            Reset All
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Back button */}
       <Button
@@ -192,25 +294,47 @@ export default function QuestionDetail() {
         Back to Questions
       </Button>
 
-      {/* Question - Safely accessed after null check */}
+      {/* Question header */}
       <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography
-          variant='h6'
-          gutterBottom
-          sx={{
-            fontWeight: 500,
-            lineHeight: 1.5,
-            whiteSpace: 'pre-wrap',
-            mb: 2,
-            fontSize: '1.1rem',
-          }}>
-          {question?.questionId}: {question?.question}
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Typography
+            variant='h6'
+            gutterBottom
+            sx={{
+              fontWeight: 500,
+              lineHeight: 1.5,
+              whiteSpace: 'pre-wrap',
+              flexGrow: 1,
+              fontSize: '1.1rem',
+            }}>
+            {question.questionId}: {question.question}
+          </Typography>
+          <Tooltip title='Show explanation'>
+            <IconButton
+              onClick={() => setShowExplanation(!showExplanation)}
+              color={showExplanation ? 'primary' : 'default'}>
+              <HelpOutlineIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
+
+        <Stack direction='row' spacing={1} sx={{ mb: 2 }}>
+          <Chip label={question.domain} size='small' />
           <Chip
-            label={question.domain}
+            label={
+              question.type === 'single' ? 'Single answer' : 'Multiple answers'
+            }
             size='small'
-            sx={{ ml: 2, verticalAlign: 'middle' }}
+            color='secondary'
           />
-        </Typography>
+          {submitted && (
+            <Chip
+              label={isCorrect ? 'Correct' : 'Incorrect'}
+              size='small'
+              color={isCorrect ? 'success' : 'error'}
+            />
+          )}
+        </Stack>
 
         {/* Display image if exists */}
         {question.image && (
@@ -246,10 +370,16 @@ export default function QuestionDetail() {
           </Box>
         )}
 
+        {showExplanation && question.explanation && (
+          <Alert severity='info' sx={{ mb: 2 }}>
+            <Typography variant='body2'>{question.explanation}</Typography>
+          </Alert>
+        )}
+
         <Divider sx={{ my: 2 }} />
 
         {/* Answers */}
-        {question?.answers?.map((answer) => (
+        {question.answers.map((answer) => (
           <Paper
             key={answer._id}
             sx={{
@@ -258,9 +388,19 @@ export default function QuestionDetail() {
               backgroundColor: submitted
                 ? answer.isCorrect
                   ? 'rgba(46, 125, 50, 0.3)'
-                  : selected === answer._id
+                  : (
+                      question.type === 'single'
+                        ? selected === answer._id
+                        : selected.includes(answer._id)
+                    )
                   ? 'rgba(211, 47, 47, 0.3)'
                   : 'background.paper'
+                : (
+                    question.type === 'single'
+                      ? selected === answer._id
+                      : selected.includes(answer._id)
+                  )
+                ? 'rgba(25, 118, 210, 0.2)'
                 : 'background.paper',
               border:
                 submitted && answer.isCorrect
@@ -273,17 +413,28 @@ export default function QuestionDetail() {
                   : undefined,
               },
             }}
-            onClick={() => !submitted && setSelected(answer._id)}>
+            onClick={() => !submitted && handleAnswerSelect(answer._id)}>
             <FormControlLabel
               control={
-                <Radio
-                  checked={selected === answer._id}
-                  disabled={submitted}
-                  sx={{
-                    color:
-                      submitted && answer.isCorrect ? '#2e7d32' : undefined,
-                  }}
-                />
+                question.type === 'single' ? (
+                  <Radio
+                    checked={selected === answer._id}
+                    disabled={submitted}
+                    sx={{
+                      color:
+                        submitted && answer.isCorrect ? '#2e7d32' : undefined,
+                    }}
+                  />
+                ) : (
+                  <Checkbox
+                    checked={selected.includes(answer._id)}
+                    disabled={submitted}
+                    sx={{
+                      color:
+                        submitted && answer.isCorrect ? '#2e7d32' : undefined,
+                    }}
+                  />
+                )
               }
               label={
                 <Typography
@@ -301,7 +452,7 @@ export default function QuestionDetail() {
               sx={{ width: '100%' }}
             />
 
-            {submitted && (
+            {submitted && answer.explanation && (
               <Typography
                 variant='body2'
                 sx={{
@@ -326,23 +477,63 @@ export default function QuestionDetail() {
           gap: 2,
         }}>
         {!submitted ? (
-          <Button
-            variant='contained'
-            onClick={handleSubmit}
-            disabled={!selected}
-            sx={{ flex: 1 }}>
-            Submit Answer
-          </Button>
-        ) : (
           <>
-            <Button variant='outlined' onClick={resetQuestion} sx={{ flex: 1 }}>
-              Try Again
+            <Button
+              variant='outlined'
+              startIcon={<NavigateBeforeIcon />}
+              onClick={() => navigateToQuestion(-1)}
+              disabled={questionNumber <= 1}
+              sx={{ minWidth: '120px' }}>
+              Previous
             </Button>
             <Button
               variant='contained'
-              endIcon={<NavigateNextIcon />}
-              onClick={handleNextQuestion}
+              onClick={handleSubmit}
+              disabled={
+                question.type === 'single' ? !selected : selected.length === 0
+              }
               sx={{ flex: 1 }}>
+              Submit Answer
+            </Button>
+            <Button
+              variant='outlined'
+              endIcon={<NavigateNextIcon />}
+              onClick={() => navigateToQuestion(1)}
+              disabled={questionNumber >= totalQuestions}
+              sx={{ minWidth: '120px' }}>
+              Next
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              variant='outlined'
+              onClick={resetQuestion}
+              sx={{ minWidth: '120px' }}>
+              Try Again
+            </Button>
+            <Box sx={{ display: 'flex', gap: 1, flex: 1 }}>
+              <TextField
+                size='small'
+                placeholder='Jump to ID (saa-Q001)'
+                value={jumpToId}
+                onChange={(e) => setJumpToId(e.target.value)}
+                onKeyDown={handleKeyDown}
+                sx={{ flex: 1 }}
+              />
+              <Button
+                variant='contained'
+                onClick={handleJumpToQuestion}
+                disabled={!jumpToId}>
+                Go
+              </Button>
+            </Box>
+            <Button
+              variant='contained'
+              endIcon={<NavigateNextIcon />}
+              onClick={() => navigateToQuestion(1)}
+              disabled={questionNumber >= totalQuestions}
+              sx={{ minWidth: '120px' }}>
               Next Question
             </Button>
           </>
