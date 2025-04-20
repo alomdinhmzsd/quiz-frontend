@@ -38,9 +38,24 @@ export default function QuestionList() {
     const fetchQuestions = async () => {
       try {
         const response = await axios.get('/api/questions');
-        const questionsData = response.data.data || [];
+        const questionsData = response.data.data || []; // This is already response.data.data
+        console.log('First 3 questions:', questionsData.slice(0, 3)); // Shows sample of questions
         setQuestions(questionsData);
         setFilteredQuestions(questionsData);
+
+        // Check if any questions have references
+        const questionsWithReferences = questionsData.filter(
+          (q) => q.reference
+        );
+        console.log(
+          `${questionsWithReferences.length} questions have references`
+        );
+        if (questionsWithReferences.length > 0) {
+          console.log(
+            'Sample reference:',
+            questionsWithReferences[0].reference
+          );
+        }
       } catch (err) {
         console.error('Error fetching questions:', err);
         setError(err.message);

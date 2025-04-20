@@ -49,6 +49,12 @@ export default function QuestionDetail() {
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
 
+  // Add this new function to verify localStorage
+  const checkAnswerSaved = () => {
+    const savedAnswers = JSON.parse(localStorage.getItem('quizAnswers') || {});
+    return savedAnswers[question?._id] || null;
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -67,6 +73,10 @@ export default function QuestionDetail() {
             });
           }),
         ]);
+
+        console.log('Question detail response:', questionRes.data.data);
+        console.log('Reference exists:', !!questionRes.data.data.reference);
+        console.log('Reference value:', questionRes.data.data.reference);
 
         if (!questionRes?.data?.data) throw new Error('Question not found');
 
@@ -249,6 +259,17 @@ export default function QuestionDetail() {
             value={progress}
             sx={{ height: 8, borderRadius: 4 }}
           />
+          {/* Add the localStorage status indicator */}
+          <Typography variant='caption' color='text.secondary' sx={{ mt: 1 }}>
+            {checkAnswerSaved() ? (
+              <>
+                {submitted ? 'Answer saved' : 'Previous answer available'} -{' '}
+                {new Date(checkAnswerSaved().timestamp).toLocaleString()}
+              </>
+            ) : (
+              'Answer not yet saved'
+            )}
+          </Typography>
         </Box>
         <Tooltip title='Reset all progress'>
           <IconButton onClick={() => setShowResetDialog(true)} color='error'>
@@ -351,21 +372,44 @@ export default function QuestionDetail() {
         )}
 
         {/* Display reference if exists */}
+        {/* Enhanced Reference Section */}
+
         {question.reference && (
-          <Box sx={{ mb: 3 }}>
-            <Typography variant='body2' color='text.secondary'>
-              Reference:{' '}
-              <Link
-                href={question.reference}
-                target='_blank'
-                rel='noopener noreferrer'
-                sx={{ color: 'primary.main' }}>
-                {question.reference}
-              </Link>
+          <Box
+            sx={{
+              mb: 3,
+              p: 2,
+              backgroundColor: 'rgba(0, 0, 0, 0.05)',
+              borderRadius: 1,
+            }}>
+            <Typography variant='body2' color='text.secondary' sx={{ mb: 1 }}>
+              <strong>References:</strong>
             </Typography>
+            {question.reference.split('\n\n').map((url, index) => (
+              <Box key={index} sx={{ mb: 2 }}>
+                <Link
+                  href={url.trim()}
+                  target='_blank'
+                  rel='noopener noreferrer'
+                  sx={{
+                    color: 'primary.main',
+                    wordBreak: 'break-all',
+                    display: 'block',
+                    '&:hover': { textDecoration: 'underline' },
+                  }}>
+                  {url.trim()}
+                </Link>
+                {url.includes('aws.amazon.com') && (
+                  <Typography
+                    variant='caption'
+                    sx={{ color: 'text.secondary' }}>
+                    (Official AWS Documentation)
+                  </Typography>
+                )}
+              </Box>
+            ))}
           </Box>
         )}
-
         {showExplanation && question.explanation && (
           <Alert severity='info' sx={{ mb: 2 }}>
             <Typography variant='body2'>{question.explanation}</Typography>
