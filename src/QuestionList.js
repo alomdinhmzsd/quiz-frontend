@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import axios from 'axios';
 import {
   Card,
@@ -20,8 +20,8 @@ import {
   ToggleButton,
   ToggleButtonGroup,
 } from '@mui/material';
-import { motion } from 'framer-motion';
 import SortIcon from '@mui/icons-material/Sort';
+import { motion } from 'framer-motion';
 
 export default function QuestionList() {
   const { domainName } = useParams();
@@ -37,12 +37,13 @@ export default function QuestionList() {
   useEffect(() => {
     const fetchQuestions = async () => {
       try {
-        const res = await axios.get('/api/questions');
-        setQuestions(res.data);
-        setFilteredQuestions(res.data);
+        const response = await axios.get('/api/questions');
+        const questionsData = response.data.data || [];
+        setQuestions(questionsData);
+        setFilteredQuestions(questionsData);
       } catch (err) {
-        setError(err.message);
         console.error('Error fetching questions:', err);
+        setError(err.message);
       } finally {
         setLoading(false);
       }

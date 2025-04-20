@@ -68,9 +68,9 @@ export default function QuestionDetail() {
           }),
         ]);
 
-        if (!questionRes?.data) throw new Error('Question not found');
+        if (!questionRes?.data?.data) throw new Error('Question not found');
 
-        const questions = allQuestionsRes.data;
+        const questions = allQuestionsRes.data.data || [];
         const currentIndex = questions.findIndex(
           (q) => q._id === id || q.questionId.toLowerCase() === id.toLowerCase()
         );
@@ -82,19 +82,13 @@ export default function QuestionDetail() {
         setQuestionNumber(currentIndex + 1);
         setProgress(((currentIndex + 1) / questions.length) * 100);
 
-        setQuestion({
-          ...questionRes.data,
-          answers: questionRes.data.answers.map((a) => ({
-            ...a,
-            _id: a._id.toString(),
-          })),
-        });
+        setQuestion(questionRes.data.data);
 
         // Load saved answer if exists
         const savedAnswers = JSON.parse(
-          localStorage.getItem('quizAnswers') || {}
+          localStorage.getItem('quizAnswers') || '{}'
         );
-        const questionKey = questionRes.data._id;
+        const questionKey = questionRes.data.data._id;
         if (savedAnswers[questionKey]) {
           setSelected(savedAnswers[questionKey].selected);
           setSubmitted(savedAnswers[questionKey].submitted);
@@ -309,13 +303,15 @@ export default function QuestionDetail() {
             }}>
             {question.questionId}: {question.question}
           </Typography>
-          <Tooltip title='Show explanation'>
-            <IconButton
-              onClick={() => setShowExplanation(!showExplanation)}
-              color={showExplanation ? 'primary' : 'default'}>
-              <HelpOutlineIcon />
-            </IconButton>
-          </Tooltip>
+          {question.explanation && (
+            <Tooltip title='Show explanation'>
+              <IconButton
+                onClick={() => setShowExplanation(!showExplanation)}
+                color={showExplanation ? 'primary' : 'default'}>
+                <HelpOutlineIcon />
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
 
         <Stack direction='row' spacing={1} sx={{ mb: 2 }}>
