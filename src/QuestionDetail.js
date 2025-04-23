@@ -49,12 +49,22 @@ export default function QuestionDetail() {
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
 
-  // Add this new function to verify localStorage
+  // Replace the existing checkAnswerSaved function with:
   const checkAnswerSaved = () => {
-    const savedAnswers = JSON.parse(localStorage.getItem('quizAnswers') || {});
-    return savedAnswers[question?._id] || null;
-  };
+    const savedAnswers = localStorage.getItem('quizAnswers');
+    if (!savedAnswers) return null;
 
+    try {
+      const parsed =
+        typeof savedAnswers === 'string'
+          ? JSON.parse(savedAnswers)
+          : savedAnswers;
+      return parsed[question?._id] || null;
+    } catch (err) {
+      console.error('Error parsing saved answers:', err);
+      return null;
+    }
+  };
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -100,7 +110,17 @@ export default function QuestionDetail() {
         );
         const questionKey = questionRes.data.data._id;
         if (savedAnswers[questionKey]) {
-          setSelected(savedAnswers[questionKey].selected);
+          // Ensure the loaded selection matches the question type
+          const savedSelection = savedAnswers[questionKey].selected;
+          setSelected(
+            questionRes.data.data.type === 'single' &&
+              Array.isArray(savedSelection)
+              ? savedSelection[0] || ''
+              : questionRes.data.data.type === 'multi' &&
+                !Array.isArray(savedSelection)
+              ? [savedSelection].filter(Boolean)
+              : savedSelection
+          );
           setSubmitted(savedAnswers[questionKey].submitted);
           setIsCorrect(savedAnswers[questionKey].isCorrect);
         }
@@ -116,47 +136,61 @@ export default function QuestionDetail() {
     fetchData();
   }, [id]);
 
+  // Updated handleSubmit function
   const handleSubmit = () => {
     if (!question) return;
 
-    const correctAnswer = question.answers.find((a) => a.isCorrect);
-    const correct =
-      question.type === 'single'
-        ? selected === correctAnswer?._id
-        : JSON.stringify(selected.sort()) ===
-          JSON.stringify(
-            question.answers
-              .filter((a) => a.isCorrect)
-              .map((a) => a._id)
-              .sort()
-          );
+    const correctAnswers = question.answers
+      .filter((a) => a.isCorrect)
+      .map((a) => a._id);
 
-    setIsCorrect(correct);
+    let isCorrect;
+    if (question.type === 'single') {
+      // For single answer, check if selected matches the correct answer
+      isCorrect = correctAnswers.includes(selected);
+    } else {
+      // For multiple answers:
+      // 1. Ensure at least one answer is selected
+      // 2. All selected answers must be correct
+      // 3. All correct answers must be selected
+      isCorrect =
+        selected.length > 0 &&
+        selected.every((id) => correctAnswers.includes(id)) &&
+        correctAnswers.every((id) => selected.includes(id));
+    }
+
+    setIsCorrect(isCorrect);
     setSubmitted(true);
 
+    // Save to localStorage
     const savedAnswers = JSON.parse(
       localStorage.getItem('quizAnswers') || '{}'
     );
     savedAnswers[question._id] = {
       selected,
       submitted: true,
-      isCorrect: correct,
+      isCorrect,
       timestamp: new Date().toISOString(),
     };
     localStorage.setItem('quizAnswers', JSON.stringify(savedAnswers));
   };
 
+  // Updated handleAnswerSelect function
   const handleAnswerSelect = (answerId) => {
     if (submitted) return;
 
     if (question.type === 'single') {
+      // For single selection, simply set the selected answer ID
       setSelected(answerId);
     } else {
-      setSelected((prev) =>
-        prev.includes(answerId)
-          ? prev.filter((id) => id !== answerId)
-          : [...prev, answerId]
-      );
+      // For multiple selection, toggle the answer ID in the array
+      setSelected((prev) => {
+        // Initialize as array if it's empty string (from single selection)
+        const currentSelection = prev === '' ? [] : prev;
+        return currentSelection.includes(answerId)
+          ? currentSelection.filter((id) => id !== answerId)
+          : [...currentSelection, answerId];
+      });
     }
   };
 
