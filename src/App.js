@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import Header from './Header';
-import QuestionList from './QuestionList';
+import QuestionList from './components/QuestionList/QuestionList';
 import QuestionDetail from './components/QuestionDetail/QuestionDetail';
 import { darkTheme } from './theme';
 
