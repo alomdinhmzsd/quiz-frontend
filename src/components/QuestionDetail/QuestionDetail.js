@@ -43,33 +43,35 @@ const QuestionDetail = () => {
     ) + 1;
   const progress = (questionNumber / allQuestions.length) * 100;
 
-  // ====== NEW: Answer Saved Check Logic ======
   const checkAnswerSaved = (questionId) => {
-    // Implement your actual logic here (e.g., check localStorage/API)
-    // This is a placeholder - replace with your real implementation
     const savedAnswers = JSON.parse(
       localStorage.getItem('quizAnswers') || '{}'
     );
     return !!savedAnswers[questionId];
   };
 
-  // Answer handlers
+  // Enhanced answer handlers with debugging
   const answerHandlers = {
-    handleSelect: (answerId) =>
-      handleAnswerSelect(
+    handleSelect: (answerId) => {
+      console.log('Attempting to select:', answerId);
+      return handleAnswerSelect(
         answerId,
         question?.type,
         selected,
         setSelected,
         submitted
-      ),
-    handleSubmit: () =>
-      handleSubmit(question, selected, setIsCorrect, setSubmitted),
-    resetQuestion: () =>
-      resetQuestion(question, setSelected, setSubmitted, setIsCorrect),
+      );
+    },
+    handleSubmit: () => {
+      console.log('Submitting answers:', selected);
+      return handleSubmit(question, selected, setIsCorrect, setSubmitted);
+    },
+    resetQuestion: () => {
+      console.log('Resetting question');
+      return resetQuestion(question, setSelected, setSubmitted, setIsCorrect);
+    },
   };
 
-  // Navigation handlers
   const handleNavigationError = (error) => {
     console.error('Navigation error:', error);
   };
@@ -114,6 +116,21 @@ const QuestionDetail = () => {
   if (error || !question)
     return <ErrorState error={error} navigate={navigate} />;
 
+  // Enhanced debugging
+  console.log('--- DEBUG ---');
+  console.log('Question:', question?.questionId);
+  console.log(
+    'Answers:',
+    question?.answers?.map((a) => ({
+      id: a._id,
+      text: a.text?.substring(0, 50) + (a.text?.length > 50 ? '...' : ''),
+    }))
+  );
+  console.log('Selected:', selected);
+  console.log('Question Type:', question?.type);
+  console.log('Submitted:', submitted);
+  console.log('--- END DEBUG ---');
+
   return (
     <Container maxWidth='md' sx={{ py: 4 }}>
       <ProgressSection
@@ -122,7 +139,7 @@ const QuestionDetail = () => {
         progress={progress}
         submitted={submitted}
         setShowResetDialog={setShowResetDialog}
-        checkAnswerSaved={checkAnswerSaved} // NEW: Added missing prop
+        checkAnswerSaved={checkAnswerSaved}
       />
 
       <ResetDialog
@@ -144,9 +161,9 @@ const QuestionDetail = () => {
         isCorrect={isCorrect}
       />
 
-      {question.answers.map((answer) => (
+      {question.answers?.map((answer) => (
         <AnswerItem
-          key={answer._id}
+          key={answer._id || Math.random().toString()}
           answer={answer}
           questionType={question.type}
           selected={selected}
