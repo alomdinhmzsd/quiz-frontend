@@ -1,11 +1,10 @@
 import React from 'react';
 import {
-  Paper,
+  Box,
   FormControlLabel,
-  Radio,
   Checkbox,
+  Radio,
   Typography,
-  Alert,
 } from '@mui/material';
 
 const AnswerItem = ({
@@ -15,50 +14,85 @@ const AnswerItem = ({
   submitted,
   handleAnswerSelect,
 }) => {
-  // Enhanced validation with fallback ID generation
-  if (!answer || typeof answer !== 'object') {
-    console.error('Invalid answer:', answer);
-    return <Alert severity='error'>Invalid answer format</Alert>;
-  }
+  const isSelected =
+    selected.includes(answer._id) ||
+    selected.includes(answer.text) ||
+    selected.some((id) => id.includes(answer._id || answer.text));
 
-  // Generate stable ID from text if missing _id/id
-  const answerId =
-    answer._id ||
-    answer.id ||
-    (answer.text &&
-      `text-${answer.text.substring(0, 20).replace(/\s+/g, '_')}`) ||
-    `answer-${Math.random().toString(36).substring(2, 9)}`;
-
-  const answerText = answer.text || `Answer ${answerId.substring(0, 4)}`;
-  const isSelected = selected?.includes(answerId) || false;
-  const isMulti = String(questionType).toLowerCase().includes('multi');
-
-  const handleClick = () => {
-    if (!submitted && handleAnswerSelect) {
-      handleAnswerSelect(answerId);
-    }
-  };
+  const ControlComponent = questionType === 'single' ? Radio : Checkbox;
 
   return (
-    <Paper
+    <Box
       sx={{
+        mb: 1,
         p: 2,
-        mb: 2,
-        cursor: !submitted ? 'pointer' : 'default',
-        backgroundColor: isSelected ? 'rgba(25, 118, 210, 0.08)' : undefined,
+        border: '1px solid',
+        borderColor: isSelected ? 'primary.main' : 'divider',
+        borderRadius: 1,
+        backgroundColor: isSelected ? 'action.selected' : 'background.paper',
+        position: 'relative',
+        ...(answer.isDuplicate && {
+          borderLeft: '4px solid',
+          borderLeftColor: 'warning.main',
+        }),
       }}
-      onClick={handleClick}>
+      onClick={() => handleAnswerSelect(answer._id || answer.text)}>
       <FormControlLabel
         control={
-          isMulti ? (
-            <Checkbox checked={isSelected} disabled={submitted} />
-          ) : (
-            <Radio checked={isSelected} disabled={submitted} />
-          )
+          <ControlComponent
+            checked={isSelected}
+            disabled={submitted}
+            sx={{
+              mr: 1,
+              ...(submitted && {
+                color: answer.isCorrect ? 'success.main' : 'error.main',
+              }),
+            }}
+          />
         }
-        label={<Typography>{answerText}</Typography>}
+        label={
+          <Typography
+            sx={{
+              fontWeight: isSelected ? 600 : 400,
+              color: submitted
+                ? answer.isCorrect
+                  ? 'success.main'
+                  : 'text.secondary'
+                : 'text.primary',
+            }}>
+            {answer.text}
+            {answer.isDuplicate && (
+              <Box
+                component='span'
+                sx={{
+                  ml: 1,
+                  px: 1,
+                  py: 0.5,
+                  bgcolor: 'warning.light',
+                  color: 'warning.contrastText',
+                  fontSize: 12,
+                  borderRadius: 1,
+                }}>
+                Duplicate
+              </Box>
+            )}
+          </Typography>
+        }
+        sx={{ width: '100%', m: 0 }}
       />
-    </Paper>
+      {submitted && answer.explanation && (
+        <Typography
+          variant='body2'
+          sx={{
+            mt: 1,
+            pl: 4,
+            fontStyle: 'italic',
+            color: answer.isCorrect ? 'success.main' : 'error.main',
+          }}>
+          {answer.explanation}
+        </Typography>
+      )}
+    </Box>
   );
 };
 

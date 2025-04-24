@@ -1,43 +1,12 @@
-export const handleSubmit = (
-  question,
-  selected = [],
-  setIsCorrect,
-  setSubmitted
-) => {
-  if (!question?.answers) {
-    console.error('Invalid question:', question);
-    return false;
-  }
-
-  // Get correct answer IDs
-  const correctAnswers = question.answers
-    .filter((a) => a.isCorrect)
-    .map((a) => a._id || a.id);
-
-  // Special case: no selection made
-  if (selected.length === 0) {
-    setIsCorrect(false);
-    setSubmitted(true);
-    return false;
-  }
-
-  // Validate answer(s)
-  let isCorrect;
-  if (question.type === 'single') {
-    isCorrect = selected.length === 1 && correctAnswers.includes(selected[0]);
-  } else {
-    // For multiple select, must have all correct answers and no incorrect ones
-    isCorrect =
-      selected.every((id) => correctAnswers.includes(id)) &&
-      correctAnswers.every((id) => selected.includes(id));
-  }
-
-  setIsCorrect(isCorrect);
-  setSubmitted(true);
-  return isCorrect;
+export const normalizeAnswerText = (text) => {
+  if (!text) return '';
+  return text
+    .replace(/^text-/, '')
+    .replace(/_/g, ' ')
+    .trim()
+    .toLowerCase();
 };
 
-// utils/answerHandlers.js
 export const handleAnswerSelect = (
   answerId,
   questionType,
@@ -45,23 +14,52 @@ export const handleAnswerSelect = (
   setSelected,
   submitted
 ) => {
-  if (submitted || !answerId) return;
+  if (submitted) return;
 
-  const normalizedType = String(questionType).toLowerCase();
-  const isMulti = normalizedType.includes('multi');
+  const normalizedId = normalizeAnswerText(answerId);
+  console.log('Selecting:', { raw: answerId, normalized: normalizedId });
 
-  console.log(`Selecting ${answerId} in ${isMulti ? 'multi' : 'single'} mode`);
-
-  if (isMulti) {
-    setSelected((prev) => {
-      const current = Array.isArray(prev) ? prev : [];
-      return current.includes(answerId)
-        ? current.filter((id) => id !== answerId)
-        : [...current, answerId];
-    });
+  if (questionType === 'single') {
+    setSelected([answerId]); // Use raw ID for UI consistency
   } else {
-    setSelected([answerId]);
+    setSelected((prev) =>
+      prev.includes(answerId)
+        ? prev.filter((id) => id !== answerId)
+        : [...prev, answerId]
+    );
   }
+};
+
+export const handleSubmit = (
+  question,
+  selected,
+  setIsCorrect,
+  setSubmitted
+) => {
+  if (!question || !selected.length) return;
+
+  const normalizedSelected = selected.map(normalizeAnswerText);
+  const correctAnswers = question.answers
+    .filter((a) => a.isCorrect)
+    .map((a) => normalizeAnswerText(a.text));
+
+  console.log('Validation:', {
+    selected: normalizedSelected,
+    correct: correctAnswers,
+  });
+
+  const isCorrect =
+    question.type === 'single'
+      ? correctAnswers.includes(normalizedSelected[0])
+      : correctAnswers.every((ans) => normalizedSelected.includes(ans));
+
+  setIsCorrect(isCorrect);
+  setSubmitted(true);
+
+  // Save to localStorage
+  const savedAnswers = JSON.parse(localStorage.getItem('quizAnswers') || '{}');
+  savedAnswers[question._id] = { selected, isCorrect };
+  localStorage.setItem('quizAnswers', JSON.stringify(savedAnswers));
 };
 
 export const resetQuestion = (

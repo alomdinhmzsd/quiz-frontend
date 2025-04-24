@@ -3,11 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Container } from '@mui/material';
 import { useQuestionData } from './hooks/useQuestionData';
 import { useQuestionUI } from './hooks/useQuestionUI';
-import {
-  handleAnswerSelect,
-  handleSubmit,
-  resetQuestion,
-} from './utils/answerHandlers';
+import { handleSubmit, resetQuestion } from './utils/answerHandlers';
 import ProgressSection from './ProgressSection';
 import ResetDialog from './ResetDialog';
 import BackButton from './BackButton';
@@ -17,14 +13,40 @@ import AnswerItem from './AnswerItem';
 import { Box, CircularProgress, Alert, Button } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
-// Add this before your component
+// ==================== NEW UTILITIES ====================
+const normalizeAnswerText = (text) => {
+  if (!text) return '';
+  return text
+    .replace(/^text-/, '')
+    .replace(/_/g, ' ')
+    .trim()
+    .toLowerCase();
+};
+
+const detectDuplicates = (answers) => {
+  const contentMap = {};
+  return (
+    answers?.map((answer) => {
+      const normalized = normalizeAnswerText(answer.text);
+      const isDuplicate = contentMap[normalized];
+      contentMap[normalized] = true;
+      return {
+        ...answer,
+        isDuplicate,
+        normalizedText: normalized, // For consistent comparison
+      };
+    }) || []
+  );
+};
+
 const getAnswerId = (answer) => {
   return (
     answer?._id ||
     answer?.id ||
-    String(answer?.text?.hashCode?.() || Math.random())
+    `gen-${Math.random().toString(36).substr(2, 9)}`
   );
 };
+// ==================== END UTILITIES ====================
 
 const QuestionDetail = () => {
   const { id } = useParams();
@@ -45,129 +67,63 @@ const QuestionDetail = () => {
     setShowExplanation,
   } = useQuestionUI(question);
 
-  useEffect(() => {
-    resetQuestion(question, setSelected, setSubmitted, setIsCorrect);
-  }, [id, question, setSelected, setSubmitted, setIsCorrect]);
-
-  // Add this useEffect right after your hooks
+  // ==================== FIXED EFFECTS ====================
   useEffect(() => {
     if (question) {
+      const processedAnswers = detectDuplicates(question.answers);
+      console.log('Processed answers:', processedAnswers);
       setSelected([]);
       setSubmitted(false);
       setIsCorrect(false);
     }
   }, [id, question, setSelected, setSubmitted, setIsCorrect]);
 
-  // Calculate progress
+  // ==================== ENHANCED HANDLERS ====================
+  const answerHandlers = {
+    handleSelect: (answerId) => {
+      const normalizedId = normalizeAnswerText(answerId);
+      console.log('Selection event:', { answerId, normalizedId, selected });
+
+      if (question?.type === 'single') {
+        // Single answer - select only this one
+        setSelected([answerId]);
+      } else {
+        // Multi answer - toggle selection
+        setSelected((prev) =>
+          prev.includes(answerId)
+            ? prev.filter((id) => id !== answerId)
+            : [...prev, answerId]
+        );
+      }
+    },
+
+    handleSubmit: () => {
+      console.log('Submitting:', {
+        selected,
+        correctAnswers: question.answers
+          .filter((a) => a.isCorrect)
+          .map((a) => a.normalizedText || normalizeAnswerText(a.text)),
+      });
+
+      handleSubmit(question, selected, setIsCorrect, setSubmitted);
+    },
+
+    resetQuestion: () => {
+      resetQuestion(question, setSelected, setSubmitted, setIsCorrect);
+    },
+  };
+
+  // ==================== RENDER LOGIC ====================
+  if (loading) return <LoadingState />;
+  if (error || !question)
+    return <ErrorState error={error} navigate={navigate} />;
+
+  // Progress calculation
   const questionNumber =
     allQuestions.findIndex(
       (q) => q._id === id || q.questionId?.toLowerCase() === id.toLowerCase()
     ) + 1;
   const progress = (questionNumber / allQuestions.length) * 100;
-
-  const checkAnswerSaved = (questionId) => {
-    const savedAnswers = JSON.parse(
-      localStorage.getItem('quizAnswers') || '{}'
-    );
-    return !!savedAnswers[questionId];
-  };
-
-  // Enhanced answer handlers with debugging
-  const answerHandlers = {
-    handleSelect: (answerId) => {
-      console.log('Attempting to select:', answerId);
-      return handleAnswerSelect(
-        answerId,
-        question?.type,
-        selected,
-        setSelected,
-        submitted
-      );
-    },
-    handleSubmit: () => {
-      console.log('Submitting answers:', selected);
-      return handleSubmit(question, selected, setIsCorrect, setSubmitted);
-    },
-    resetQuestion: () => {
-      console.log('Resetting question');
-      return resetQuestion(question, setSelected, setSubmitted, setIsCorrect);
-    },
-  };
-
-  const handleNavigationError = (error) => {
-    console.error('Navigation error:', error);
-  };
-
-  const navHandlers = {
-    navigateTo: (offset) => {
-      try {
-        const currentIndex = allQuestions.findIndex(
-          (q) =>
-            q._id === id ||
-            (q.questionId && q.questionId.toLowerCase() === id.toLowerCase())
-        );
-        if (currentIndex >= 0) {
-          const newIndex = currentIndex + offset;
-          if (newIndex >= 0 && newIndex < allQuestions.length) {
-            navigate(`/questions/${allQuestions[newIndex]._id}`);
-          }
-        }
-      } catch (err) {
-        handleNavigationError(err);
-      }
-    },
-    jumpToQuestion: (jumpId) => {
-      try {
-        if (!jumpId?.trim()) return;
-
-        const foundQuestion = allQuestions.find(
-          (q) =>
-            q.questionId &&
-            q.questionId.toLowerCase() === jumpId.toLowerCase().trim()
-        );
-        if (foundQuestion) {
-          navigate(`/questions/${foundQuestion._id}`);
-        }
-      } catch (err) {
-        handleNavigationError(err);
-      }
-    },
-  };
-
-  if (loading) return <LoadingState />;
-  if (error || !question)
-    return <ErrorState error={error} navigate={navigate} />;
-
-  // Enhanced debugging
-  // console.log('--- DEBUG ---');
-  // console.log('Question:', question?.questionId);
-  // console.log(
-  //   'Answers:',
-  //   question?.answers?.map((a) => ({
-  //     id: a._id,
-  //     text: a.text?.substring(0, 50) + (a.text?.length > 50 ? '...' : ''),
-  //   }))
-  // );
-  // console.log('Selected:', selected);
-  // console.log('Question Type:', question?.type);
-  // console.log('Submitted:', submitted);
-  // console.log('--- END DEBUG ---');
-
-  // Right before rendering answers:
-  console.log('Rendering answers:', {
-    hasAnswers: question?.answers?.length > 0,
-    answerCount: question?.answers?.length,
-    firstAnswer: question?.answers?.[0],
-  });
-  // ▼ Add this here ▼ (before the return, but after all hooks)
-  console.log('Question answers structure:', {
-    questionId: question?.questionId,
-    answers: question?.answers?.map((a) => ({
-      hasId: !!(a._id || a.id),
-      hasText: !!a.text,
-      content: a.text?.substring(0, 20),
-    })),
-  });
 
   return (
     <Container maxWidth='md' sx={{ py: 4 }}>
@@ -177,8 +133,9 @@ const QuestionDetail = () => {
         progress={progress}
         submitted={submitted}
         setShowResetDialog={setShowResetDialog}
-        checkAnswerSaved={checkAnswerSaved}
+        checkAnswerSaved={(qId) => !!localStorage.getItem('quizAnswers')?.[qId]}
       />
+
       <ResetDialog
         open={showResetDialog}
         onClose={() => setShowResetDialog(false)}
@@ -187,7 +144,9 @@ const QuestionDetail = () => {
           window.location.reload();
         }}
       />
+
       <BackButton navigate={navigate} />
+
       <QuestionHeader
         question={question}
         showExplanation={showExplanation}
@@ -195,7 +154,9 @@ const QuestionDetail = () => {
         submitted={submitted}
         isCorrect={isCorrect}
       />
-      {question.answers?.map((answer) => (
+
+      {/* Answers List with Duplicate Protection */}
+      {detectDuplicates(question.answers).map((answer) => (
         <AnswerItem
           key={getAnswerId(answer)}
           answer={answer}
@@ -205,6 +166,7 @@ const QuestionDetail = () => {
           handleAnswerSelect={answerHandlers.handleSelect}
         />
       ))}
+
       <ActionButtons
         submitted={submitted}
         question={question}
@@ -213,13 +175,25 @@ const QuestionDetail = () => {
         totalQuestions={allQuestions.length}
         handleSubmit={answerHandlers.handleSubmit}
         resetQuestion={answerHandlers.resetQuestion}
-        navigateToQuestion={navHandlers.navigateTo}
-        handleJumpToQuestion={navHandlers.jumpToQuestion}
+        navigateToQuestion={(offset) => {
+          const currentIndex = allQuestions.findIndex((q) => q._id === id);
+          if (currentIndex >= 0) {
+            const newQuestion = allQuestions[currentIndex + offset];
+            if (newQuestion) navigate(`/questions/${newQuestion._id}`);
+          }
+        }}
+        handleJumpToQuestion={(jumpId) => {
+          const target = allQuestions.find(
+            (q) => q.questionId?.toLowerCase() === jumpId.toLowerCase()
+          );
+          if (target) navigate(`/questions/${target._id}`);
+        }}
       />
     </Container>
   );
 };
 
+// ==================== KEEP EXISTING SUB-COMPONENTS ====================
 const LoadingState = () => (
   <Box
     display='flex'
