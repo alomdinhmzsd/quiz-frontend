@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Container } from '@mui/material';
 import { useQuestionData } from './hooks/useQuestionData';
@@ -16,6 +16,15 @@ import ActionButtons from './ActionButtons';
 import AnswerItem from './AnswerItem';
 import { Box, CircularProgress, Alert, Button } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+
+// Add this before your component
+const getAnswerId = (answer) => {
+  return (
+    answer?._id ||
+    answer?.id ||
+    String(answer?.text?.hashCode?.() || Math.random())
+  );
+};
 
 const QuestionDetail = () => {
   const { id } = useParams();
@@ -35,6 +44,19 @@ const QuestionDetail = () => {
     showExplanation,
     setShowExplanation,
   } = useQuestionUI(question);
+
+  useEffect(() => {
+    resetQuestion(question, setSelected, setSubmitted, setIsCorrect);
+  }, [id, question, setSelected, setSubmitted, setIsCorrect]);
+
+  // Add this useEffect right after your hooks
+  useEffect(() => {
+    if (question) {
+      setSelected([]);
+      setSubmitted(false);
+      setIsCorrect(false);
+    }
+  }, [id, question, setSelected, setSubmitted, setIsCorrect]);
 
   // Calculate progress
   const questionNumber =
@@ -117,19 +139,35 @@ const QuestionDetail = () => {
     return <ErrorState error={error} navigate={navigate} />;
 
   // Enhanced debugging
-  console.log('--- DEBUG ---');
-  console.log('Question:', question?.questionId);
-  console.log(
-    'Answers:',
-    question?.answers?.map((a) => ({
-      id: a._id,
-      text: a.text?.substring(0, 50) + (a.text?.length > 50 ? '...' : ''),
-    }))
-  );
-  console.log('Selected:', selected);
-  console.log('Question Type:', question?.type);
-  console.log('Submitted:', submitted);
-  console.log('--- END DEBUG ---');
+  // console.log('--- DEBUG ---');
+  // console.log('Question:', question?.questionId);
+  // console.log(
+  //   'Answers:',
+  //   question?.answers?.map((a) => ({
+  //     id: a._id,
+  //     text: a.text?.substring(0, 50) + (a.text?.length > 50 ? '...' : ''),
+  //   }))
+  // );
+  // console.log('Selected:', selected);
+  // console.log('Question Type:', question?.type);
+  // console.log('Submitted:', submitted);
+  // console.log('--- END DEBUG ---');
+
+  // Right before rendering answers:
+  console.log('Rendering answers:', {
+    hasAnswers: question?.answers?.length > 0,
+    answerCount: question?.answers?.length,
+    firstAnswer: question?.answers?.[0],
+  });
+  // ▼ Add this here ▼ (before the return, but after all hooks)
+  console.log('Question answers structure:', {
+    questionId: question?.questionId,
+    answers: question?.answers?.map((a) => ({
+      hasId: !!(a._id || a.id),
+      hasText: !!a.text,
+      content: a.text?.substring(0, 20),
+    })),
+  });
 
   return (
     <Container maxWidth='md' sx={{ py: 4 }}>
@@ -141,7 +179,6 @@ const QuestionDetail = () => {
         setShowResetDialog={setShowResetDialog}
         checkAnswerSaved={checkAnswerSaved}
       />
-
       <ResetDialog
         open={showResetDialog}
         onClose={() => setShowResetDialog(false)}
@@ -150,9 +187,7 @@ const QuestionDetail = () => {
           window.location.reload();
         }}
       />
-
       <BackButton navigate={navigate} />
-
       <QuestionHeader
         question={question}
         showExplanation={showExplanation}
@@ -160,10 +195,9 @@ const QuestionDetail = () => {
         submitted={submitted}
         isCorrect={isCorrect}
       />
-
       {question.answers?.map((answer) => (
         <AnswerItem
-          key={answer._id || Math.random().toString()}
+          key={getAnswerId(answer)}
           answer={answer}
           questionType={question.type}
           selected={selected}
@@ -171,7 +205,6 @@ const QuestionDetail = () => {
           handleAnswerSelect={answerHandlers.handleSelect}
         />
       ))}
-
       <ActionButtons
         submitted={submitted}
         question={question}
