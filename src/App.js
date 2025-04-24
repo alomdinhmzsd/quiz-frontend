@@ -3,7 +3,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import Header from './Header';
 import QuestionList from './QuestionList';
-import QuestionDetail from './QuestionDetail';
+import QuestionDetail from './components/QuestionDetail/QuestionDetail';
 import { darkTheme } from './theme';
 
 function App() {
