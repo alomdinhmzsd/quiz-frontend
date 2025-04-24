@@ -43,6 +43,16 @@ const QuestionDetail = () => {
     ) + 1;
   const progress = (questionNumber / allQuestions.length) * 100;
 
+  // ====== NEW: Answer Saved Check Logic ======
+  const checkAnswerSaved = (questionId) => {
+    // Implement your actual logic here (e.g., check localStorage/API)
+    // This is a placeholder - replace with your real implementation
+    const savedAnswers = JSON.parse(
+      localStorage.getItem('quizAnswers') || '{}'
+    );
+    return !!savedAnswers[questionId];
+  };
+
   // Answer handlers
   const answerHandlers = {
     handleSelect: (answerId) =>
@@ -59,10 +69,9 @@ const QuestionDetail = () => {
       resetQuestion(question, setSelected, setSubmitted, setIsCorrect),
   };
 
-  // ====== UPDATED NAVIGATION HANDLERS ======
+  // Navigation handlers
   const handleNavigationError = (error) => {
     console.error('Navigation error:', error);
-    // Optional: You can add setError(error.message) here if you want to show errors
   };
 
   const navHandlers = {
@@ -100,7 +109,6 @@ const QuestionDetail = () => {
       }
     },
   };
-  // ====== END OF UPDATED CODE ======
 
   if (loading) return <LoadingState />;
   if (error || !question)
@@ -114,6 +122,7 @@ const QuestionDetail = () => {
         progress={progress}
         submitted={submitted}
         setShowResetDialog={setShowResetDialog}
+        checkAnswerSaved={checkAnswerSaved} // NEW: Added missing prop
       />
 
       <ResetDialog
