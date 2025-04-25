@@ -14,12 +14,17 @@ export const useQuestionData = (id) => {
         setError(null);
 
         const [allQuestionsRes, questionRes] = await Promise.all([
-          axios.get('/api/questions'),
-          axios.get(`/api/questions/${id}`).catch(async () => {
-            return axios.get(`/api/questions/${id}`, {
-              params: { questionId: id },
-            });
-          }),
+          axios.get(`${process.env.REACT_APP_API_URL}/api/questions`),
+          axios
+            .get(`${process.env.REACT_APP_API_URL}/api/questions/${id}`)
+            .catch(async () => {
+              return axios.get(
+                `${process.env.REACT_APP_API_URL}/api/questions/${id}`,
+                {
+                  params: { questionId: id },
+                }
+              );
+            }),
         ]);
 
         setAllQuestions(allQuestionsRes.data.data || []);
