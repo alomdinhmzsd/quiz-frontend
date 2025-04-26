@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
+// Add debug log at the top of both files:
+console.log('API Base URL:', process.env.REACT_APP_API_URL);
+
 export const useQuestionData = (id) => {
   const [question, setQuestion] = useState(null);
   const [loading, setLoading] = useState(true);

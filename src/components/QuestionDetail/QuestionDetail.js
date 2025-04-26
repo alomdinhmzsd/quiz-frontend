@@ -82,13 +82,15 @@ const QuestionDetail = () => {
   const answerHandlers = {
     handleSelect: (answerId) => {
       const normalizedId = normalizeAnswerText(answerId);
-      console.log('Selection event:', { answerId, normalizedId, selected });
+      console.log('Selection event:', {
+        answerId,
+        normalizedId,
+        currentSelected: selected,
+      });
 
       if (question?.type === 'single') {
-        // Single answer - select only this one
         setSelected([answerId]);
       } else {
-        // Multi answer - toggle selection
         setSelected((prev) =>
           prev.includes(answerId)
             ? prev.filter((id) => id !== answerId)
@@ -97,15 +99,28 @@ const QuestionDetail = () => {
       }
     },
 
-    handleSubmit: () => {
-      console.log('Submitting:', {
+    handleSubmit: async () => {
+      console.log('--- Starting Submission ---');
+      const isCorrect = await handleSubmit(
+        question,
         selected,
-        correctAnswers: question.answers
-          .filter((a) => a.isCorrect)
-          .map((a) => a.normalizedText || normalizeAnswerText(a.text)),
+        setIsCorrect,
+        setSubmitted
+      );
+
+      // Additional debug
+      console.log('Post-Submission State:', {
+        isCorrect,
+        selectedAnswers: selected,
+        questionId: question._id,
+        localStorage: JSON.parse(localStorage.getItem('quizAnswers') || '{}'),
       });
 
-      handleSubmit(question, selected, setIsCorrect, setSubmitted);
+      // Force UI update if needed
+      if (isCorrect !== undefined) {
+        setIsCorrect(isCorrect);
+      }
+      setSubmitted(true);
     },
 
     resetQuestion: () => {
