@@ -1,43 +1,92 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta
-      name="description"
-      content="Web site created using create-react-app"
-    />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <!--
-      manifest.json provides metadata used when your web app is installed on a
-      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-    -->
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <!--
-      Notice the use of %PUBLIC_URL% in the tags above.
-      It will be replaced with the URL of the `public` folder during the build.
-      Only files inside the `public` folder can be referenced from the HTML.
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="theme-color" content="#1976d2">
+    <meta name="description" content="AWS Exam Prep - Practice questions for AWS certifications">
 
-      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-      work correctly both with client-side routing and a non-root public URL.
-      Learn how to configure a non-root public URL by running `npm run build`.
-    -->
-    <title>React App</title>
+    <!-- Favicon & PWA Assets -->
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json">
+
+    <!-- iOS PWA Meta -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Windows PWA Meta -->
+    <meta name="msapplication-TileColor" content="#1976d2">
+
+    <!-- Add these AFTER the manifest link but BEFORE the title -->
+    <link rel="apple-touch-startup-image" href="/splash-640x1136.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)">
+    <link rel="apple-touch-startup-image" href="/splash-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)">
+    <link rel="apple-touch-startup-image" href="/splash-1242x2208.png" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3)">
+
+    <!-- Add more sizes as needed -->
+    <title>AWS Exam Prep</title>
+
+    <!-- Preconnect to API for faster loads -->
+    <link rel="preconnect" href="https://quiz-backend-kb5w.onrender.com" crossorigin="">
+    <style>
+      #install-button {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 10px 16px;
+        background: #1976d2;
+        color: white;
+        border: none;
+        border-radius: 50px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        cursor: pointer;
+        z-index: 1000;
+        display: none;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+          sans-serif;
+      }
+      #install-button:hover {
+        background: #1565c0;
+      }
+      @media (max-width: 768px) {
+        #install-button {
+          bottom: 70px;
+          right: 10px;
+        }
+      }
+    </style>
+    <link rel="icon" type="image/png" sizes="196x196" href="favicon-196.png">
+    <link rel="apple-touch-icon" href="apple-icon-180.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
   </head>
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <noscript>
+      <div style="padding: 20px; text-align: center">
+        <h2>JavaScript Required</h2>
+        <p>This application requires JavaScript to function properly.</p>
+      </div>
+    </noscript>
     <div id="root"></div>
-    <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
 
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
+    <!-- PWA Install Button -->
+    <button id="install-button" aria-label="Install app">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="margin-right: 8px; vertical-align: middle">
+        <path d="M17 18V19H6V18H17ZM16.5 11.4L15.8 10.7L12 14.6L8.2 10.8L7.5 11.5L12 16L16.5 11.4ZM12 3C16.7 3 20.5 6.8 20.5 11.5C20.5 16.2 16.7 20 12 20C7.3 20 3.5 16.2 3.5 11.5C3.5 6.8 7.3 3 12 3ZM12 2C6.8 2 2.5 6.3 2.5 11.5C2.5 16.7 6.8 21 12 21C17.2 21 21.5 16.7 21.5 11.5C21.5 6.3 17.2 2 12 2Z" fill="white"></path>
+      </svg>
+      Install
+    </button>
 
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
+    <!-- Load service worker -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker
+            .register('%PUBLIC_URL%/service-worker.js')
+            .then((registration) => {
+              console.log('ServiceWorker registration successful');
+            })
+            .catch((err) => {
+              console.log('ServiceWorker registration failed: ', err);
+            });
+        });
+      }
+    </script>
   </body>
 </html>

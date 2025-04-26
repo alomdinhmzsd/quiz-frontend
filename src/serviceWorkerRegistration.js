@@ -1,129 +1,200 @@
 /**
- * serviceWorkerRegistration.js - PWA Support
+ * serviceWorkerRegistration.js - Enhanced PWA Support
  *
- * Handles registration and management of the service worker for:
- * - Offline functionality
- * - Caching
- * - Update notifications
- *
- * Includes special handling for localhost development.
+ * Fixes included:
+ * 1. Aggressive cache control for stale PWA issues
+ * 2. Debug logging for iOS-specific problems
+ * 3. Forceful cache purging on updates
  */
 
 const isLocalhost = Boolean(
   window.location.hostname === 'localhost' ||
-    // [::1] is the IPv6 localhost address.
     window.location.hostname === '[::1]' ||
-    // 127.0.0.0/8 are considered localhost.
     window.location.hostname.match(
       /^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/
     )
 );
 
+// ==================== CACHE CONTROL IMPROVEMENTS ====================
+const CACHE_NAME = 'quiz-app-v2'; // Changed version forces new cache
+
+/**
+ * Enhanced register function with iOS-specific handling
+ * @param {Object} config - Optional callbacks for SW events
+ */
 export function register(config) {
   if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
     const publicUrl = new URL(process.env.PUBLIC_URL, window.location.href);
+
+    // Skip if PUBLIC_URL is cross-origin
     if (publicUrl.origin !== window.location.origin) {
-      // Service worker won't work if PUBLIC_URL is on a different origin
+      console.warn('SW: Different origin detected, skipping registration');
       return;
     }
 
+    // iOS-specific load event handling
     window.addEventListener('load', () => {
       const swUrl = `${process.env.PUBLIC_URL}/service-worker.js`;
 
       if (isLocalhost) {
-        // Running on localhost. Check if a service worker still exists or not.
         checkValidServiceWorker(swUrl, config);
-
-        // Add logging
-        navigator.serviceWorker.ready.then(() => {
-          console.log(
-            'This web app is being served cache-first by a service worker.'
-          );
-        });
+        logResourcesToCache(); // Debug helper
       } else {
-        // Not localhost. Just register service worker
         registerValidSW(swUrl, config);
       }
     });
   }
 }
 
+// ==================== CACHE PURGING ====================
+async function purgeOldCaches() {
+  const keys = await caches.keys();
+  return Promise.all(
+    keys
+      .filter((key) => key !== CACHE_NAME)
+      .map((key) => {
+        console.log(`SW: Deleting old cache ${key}`);
+        return caches.delete(key);
+      })
+  );
+}
+
+// ==================== DEBUG TOOLS ====================
+function logResourcesToCache() {
+  if (!isLocalhost) return;
+
+  caches.open(CACHE_NAME).then((cache) => {
+    cache.keys().then((requests) => {
+      console.log(
+        'SW: Cached resources:',
+        requests.map((r) => r.url)
+      );
+    });
+  });
+}
+
+// ==================== CORE REGISTRATION ====================
 function registerValidSW(swUrl, config) {
   navigator.serviceWorker
     .register(swUrl)
     .then((registration) => {
-      registration.onupdatefound = () => {
+      // Force immediate controller takeover
+      registration.addEventListener('updatefound', () => {
         const installingWorker = registration.installing;
-        if (installingWorker == null) {
-          return;
-        }
-        installingWorker.onstatechange = () => {
+        if (!installingWorker) return;
+
+        installingWorker.addEventListener('statechange', () => {
           if (installingWorker.state === 'installed') {
             if (navigator.serviceWorker.controller) {
-              // New content is available and will be used when all tabs for this page are closed.
-              console.log(
-                'New content is available and will be used when all tabs are closed.'
-              );
+              // UPDATE SCENARIO
+              console.log('SW: New content available');
 
-              // Execute callback
-              if (config && config.onUpdate) {
-                config.onUpdate(registration);
-              }
+              // Purge ALL old caches aggressively
+              purgeOldCaches().then(() => {
+                if (config?.onUpdate) config.onUpdate(registration);
+                // Force refresh for all tabs (iOS workaround)
+                registration.waiting?.postMessage({ type: 'SKIP_WAITING' });
+              });
             } else {
-              // Content is cached for offline use.
-              console.log('Content is cached for offline use.');
-
-              // Execute callback
-              if (config && config.onSuccess) {
-                config.onSuccess(registration);
-              }
+              // FIRST INSTALL
+              console.log('SW: Content cached for offline');
+              if (config?.onSuccess) config.onSuccess(registration);
             }
           }
-        };
-      };
+        });
+      });
+
+      // Periodic cache check (every 6 hours)
+      setInterval(() => registration.update(), 21600000);
     })
     .catch((error) => {
-      console.error('Error during service worker registration:', error);
+      console.error('SW: Registration failed:', error);
     });
 }
 
+// ==================== VALIDATION ====================
 function checkValidServiceWorker(swUrl, config) {
-  fetch(swUrl, {
-    headers: { 'Service-Worker': 'script' },
-  })
+  fetch(swUrl, { headers: { 'Service-Worker': 'script' } })
     .then((response) => {
-      // Ensure service worker exists, and that we really are getting a JS file.
       const contentType = response.headers.get('content-type');
-      if (
-        response.status === 404 ||
-        (contentType != null && contentType.indexOf('javascript') === -1)
-      ) {
-        // No service worker found. Reload the page.
-        navigator.serviceWorker.ready.then((registration) => {
-          registration.unregister().then(() => {
-            window.location.reload();
-          });
-        });
-      } else {
-        // Service worker found. Proceed normally.
-        registerValidSW(swUrl, config);
+      const isValid =
+        response.status === 200 && contentType?.includes('javascript');
+
+      if (!isValid) {
+        console.warn('SW: Invalid content - unregistering');
+        return unregister().then(() => window.location.reload());
       }
+      registerValidSW(swUrl, config);
     })
     .catch(() => {
-      console.log(
-        'No internet connection found. App is running in offline mode.'
-      );
+      console.log('SW: Offline mode active');
     });
 }
 
+// ==================== NUCLEAR OPTION ====================
 export function unregister() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.ready
-      .then((registration) => {
-        registration.unregister();
-      })
-      .catch((error) => {
-        console.error(error.message);
-      });
+    Promise.all([
+      navigator.serviceWorker.ready.then((reg) => reg.unregister()),
+      purgeOldCaches(),
+    ]).then(() => {
+      console.log('SW: Unregistered and caches purged');
+      if (window.location.href.includes('chrome://')) return;
+      window.location.reload(); // Auto-refresh after cleanup
+    });
   }
 }
+
+// ==================== PWA INSTALL PROMPT HANDLING ====================
+let deferredPrompt = null; // Will store the install prompt event
+
+// Store install prompt event when browser triggers it
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  console.log('PWA: Install prompt available');
+
+  // Show install button if exists in DOM
+  const installButton = document.getElementById('install-button');
+  if (installButton) {
+    installButton.style.display = 'block';
+    installButton.addEventListener('click', handleInstallClick);
+  }
+});
+
+// Clean up event listeners when needed
+function removeInstallButtonListener() {
+  const installButton = document.getElementById('install-button');
+  if (installButton) {
+    installButton.removeEventListener('click', handleInstallClick);
+  }
+}
+
+// Handle the actual installation flow
+async function handleInstallClick() {
+  if (!deferredPrompt) {
+    console.warn('PWA: No install prompt available');
+    return;
+  }
+
+  try {
+    const choiceResult = await deferredPrompt.prompt();
+    console.log(`PWA: User ${choiceResult.outcome} the install`);
+
+    if (choiceResult.outcome === 'accepted') {
+      // Track successful installs if needed
+      console.log('PWA: Installing...');
+    }
+  } catch (error) {
+    console.error('PWA: Install failed', error);
+  } finally {
+    deferredPrompt = null;
+    removeInstallButtonListener();
+  }
+}
+
+// Optional: Track successful installation
+window.addEventListener('appinstalled', () => {
+  console.log('PWA: Successfully installed');
+  removeInstallButtonListener();
+});
