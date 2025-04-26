@@ -3,6 +3,12 @@ import { Button } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from 'react-router-dom';
 
+/**
+ * BackButton component - Simple navigation back button
+ *
+ * @returns {JSX.Element} Button with back navigation functionality
+ */
+
 const BackButton = () => {
   const navigate = useNavigate();
 

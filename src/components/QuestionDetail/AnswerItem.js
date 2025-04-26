@@ -7,6 +7,15 @@ import {
   Typography,
 } from '@mui/material';
 
+/**
+ * AnswerItem component - Renders individual answer options
+ *
+ * @param {object} answer - Answer object containing text, _id, etc.
+ * @param {string} questionType - 'single' or 'multiple' answer type
+ * @param {array} selected - Array of selected answer IDs
+ * @param {boolean} submitted - Whether question is submitted
+ * @param {function} handleAnswerSelect - Handler for answer selection
+ */
 const AnswerItem = ({
   answer,
   questionType,
@@ -14,11 +23,13 @@ const AnswerItem = ({
   submitted,
   handleAnswerSelect,
 }) => {
+  // Determine if current answer is selected
   const isSelected =
     selected.includes(answer._id) ||
     selected.includes(answer.text) ||
     selected.some((id) => id.includes(answer._id || answer.text));
 
+  // Use Radio for single-answer, Checkbox for multiple-answer
   const ControlComponent = questionType === 'single' ? Radio : Checkbox;
 
   return (
@@ -31,6 +42,7 @@ const AnswerItem = ({
         borderRadius: 1,
         backgroundColor: isSelected ? 'action.selected' : 'background.paper',
         position: 'relative',
+        // Special styling for duplicate answers
         ...(answer.isDuplicate && {
           borderLeft: '4px solid',
           borderLeftColor: 'warning.main',
@@ -44,6 +56,7 @@ const AnswerItem = ({
             disabled={submitted}
             sx={{
               mr: 1,
+              // Color feedback after submission
               ...(submitted && {
                 color: answer.isCorrect ? 'success.main' : 'error.main',
               }),
@@ -56,11 +69,12 @@ const AnswerItem = ({
               fontWeight: isSelected ? 600 : 400,
               color: submitted
                 ? answer.isCorrect
-                  ? 'success.main'
-                  : 'text.secondary'
-                : 'text.primary',
+                  ? 'success.main' // Green for correct answers
+                  : 'text.secondary' // Dim for incorrect
+                : 'text.primary', // Normal when not submitted
             }}>
             {answer.text}
+            {/* Duplicate answer indicator */}
             {answer.isDuplicate && (
               <Box
                 component='span'
@@ -80,6 +94,7 @@ const AnswerItem = ({
         }
         sx={{ width: '100%', m: 0 }}
       />
+      {/* Show explanation after submission if available */}
       {submitted && answer.explanation && (
         <Typography
           variant='body2'

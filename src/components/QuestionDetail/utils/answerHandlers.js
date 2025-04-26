@@ -100,7 +100,7 @@ export const handleSubmit = async (
  * @param {function} setSelected - State setter for selected answers
  * @param {function} setSubmitted - State setter for submission status
  * @param {function} setIsCorrect - State setter for correctness
- */
+ **/
 export const resetQuestion = (setSelected, setSubmitted, setIsCorrect) => {
   setSelected([]);
   setSubmitted(false);

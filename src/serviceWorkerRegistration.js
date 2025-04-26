@@ -1,4 +1,13 @@
-// serviceWorkerRegistration.js
+/**
+ * serviceWorkerRegistration.js - PWA Support
+ *
+ * Handles registration and management of the service worker for:
+ * - Offline functionality
+ * - Caching
+ * - Update notifications
+ *
+ * Includes special handling for localhost development.
+ */
 
 const isLocalhost = Boolean(
   window.location.hostname === 'localhost' ||
