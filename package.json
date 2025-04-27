@@ -24,7 +24,7 @@
   },
   "scripts": {
     "start": "env-cmd -f .env.development react-scripts start",
-    "build": "react-scripts build",
+    "build": "react-scripts build && cp public/_redirects build/",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "generate-pwa-assets": "pwa-asset-generator public/logo512.png public -i public/index.html -m public/manifest.json --icon-only --favicon --opaque false --padding \"20%\" --type png",
