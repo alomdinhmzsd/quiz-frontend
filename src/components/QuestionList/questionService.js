@@ -10,7 +10,7 @@ export const fetchQuestions = async () => {
   try {
     console.log('API Base URL:', process.env.REACT_APP_API_URL);
     const response = await axios.get(
-      `${process.env.REACT_APP_API_URL}/api/questions`
+      `${process.env.REACT_APP_API_URL}/questions`
     );
     return response.data.data || [];
   } catch (error) {
