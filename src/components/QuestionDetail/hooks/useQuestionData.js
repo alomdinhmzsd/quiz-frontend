@@ -31,15 +31,15 @@ export const useQuestionData = (id) => {
         // Parallel API requests for better performance
         const [allQuestionsRes, questionRes] = await Promise.all([
           // Fetch all questions
-          axios.get(`${process.env.REACT_APP_API_URL}/questions`),
+          axios.get(`${process.env.REACT_APP_API_URL}/api/questions`),
 
           // Fetch specific question with fallback retry
           axios
-            .get(`${process.env.REACT_APP_API_URL}/questions/${id}`)
+            .get(`${process.env.REACT_APP_API_URL}/api/questions/${id}`)
             .catch(async () => {
               // Retry with questionId param if initial request fails
               return axios.get(
-                `${process.env.REACT_APP_API_URL}/questions/${id}`,
+                `${process.env.REACT_APP_API_URL}/api/questions/${id}`,
                 { params: { questionId: id } }
               );
             }),
