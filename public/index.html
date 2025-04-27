@@ -99,37 +99,5 @@
       </svg>
       Install
     </button>
-
-    <script>
-      if ('serviceWorker' in navigator) {
-        // 1. First unregister everything
-        navigator.serviceWorker
-          .getRegistrations()
-          .then((regs) => Promise.all(regs.map((r) => r.unregister())))
-          .then(() => {
-            // 2. Register fresh after 1 second delay
-            setTimeout(() => {
-              navigator.serviceWorker
-                .register('/service-worker.js?ver=' + Date.now(), {
-                  scope: '/',
-                  updateViaCache: 'none',
-                })
-                .then((reg) => {
-                  console.log('Registration successful');
-                  reg.update(); // Force immediate update
-                })
-                .catch((err) => {
-                  console.error('Registration failed:', err);
-                  // Additional error handling
-                  if (err.message.includes('486')) {
-                    alert(
-                      'Server configuration error - contact your hosting provider'
-                    );
-                  }
-                });
-            }, 1000);
-          });
-      }
-    </script>
   </body>
 </html>
