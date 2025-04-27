@@ -16,7 +16,7 @@ const isLocalhost = Boolean(
 );
 
 // ==================== CACHE CONTROL IMPROVEMENTS ====================
-const CACHE_NAME = 'quiz-app-v2'; // Changed version forces new cache
+const CACHE_NAME = 'quiz-app-v3'; // Changed version forces new cache
 
 /**
  * Enhanced register function with iOS-specific handling
