@@ -34,7 +34,7 @@ export function register(config) {
 
     // iOS-specific load event handling
     window.addEventListener('load', () => {
-      const swUrl = `${process.env.PUBLIC_URL}/service-worker.js`;
+      const swUrl = `${process.env.PUBLIC_URL}/service-worker.js?v=2`;
 
       if (isLocalhost) {
         checkValidServiceWorker(swUrl, config);
