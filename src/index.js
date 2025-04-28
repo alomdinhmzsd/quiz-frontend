@@ -14,9 +14,7 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
-import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 
-// Create root and render app
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
@@ -24,8 +22,24 @@ root.render(
   </React.StrictMode>
 );
 
-// Register service worker for offline capabilities
-serviceWorkerRegistration.register();
+// Simplified service worker registration
+if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/service-worker.js?' + Date.now())
+      .then((reg) => {
+        console.log('SW registered:', reg);
 
-// Start performance measurement
+        // Check for updates every hour
+        setInterval(() => reg.update(), 60 * 60 * 1000);
+
+        // Handle controller change (for iOS)
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          window.location.reload();
+        });
+      })
+      .catch((err) => console.error('SW registration failed:', err));
+  });
+}
+
 reportWebVitals();
