@@ -10,7 +10,7 @@
  */
 
 const CACHE_VERSION = 'v3.9-ios-urgent';
-const CACHE_NAME = 'quiz-app-' + CACHE_VERSION;
+const CACHE_NAME = 'quiz-app-' + new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
 const OFFLINE_URL = '/offline.html';
 const CRITICAL_ASSETS = [
   '/',

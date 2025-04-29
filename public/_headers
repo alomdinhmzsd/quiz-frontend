@@ -1,0 +1,5 @@
+# Add this to public-headers
+
+/service-worker.js
+Cache-Control: no-cache, no-store, must-revalidate
+Netlify-CDN-Cache-Control: no-cach
