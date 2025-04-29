@@ -19,38 +19,35 @@ root.render(
   </React.StrictMode>
 );
 
-// ===== SERVICE WORKER REGISTRATION =====
 if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-  window.addEventListener('load', () => {
-    // Removed timestamp parameter - now uses file content hash
-    const swUrl = '/service-worker.js';
+  // Add splash screen meta for iOS
+  if (isIOS) {
+    const meta = document.createElement('meta');
+    meta.name = 'apple-mobile-web-app-capable';
+    meta.content = 'yes';
+    document.head.appendChild(meta);
+  }
 
+  window.addEventListener('load', () => {
     navigator.serviceWorker
-      .register(swUrl, {
+      .register('/service-worker.js', {
         scope: '/',
         updateViaCache: 'none',
       })
       .then((reg) => {
-        console.log(`Service Worker registered (iOS: ${isIOS})`);
+        // Force cache load on iOS
+        if (isIOS) {
+          caches
+            .open('quiz-app-lockdown-v1')
+            .then((cache) => cache.add('/index.html'));
+        }
 
-        // Only force reload if controller changes AFTER initial load
-        let initialLoad = true;
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          if (!initialLoad) {
-            console.log('Controller changed - reloading');
-            window.location.reload();
-          }
-          initialLoad = false;
-        });
-
-        // Check for updates every 2 hours
-        setInterval(() => {
-          console.log('Checking for updates...');
-          reg.update();
-        }, 2 * 60 * 60 * 1000);
-      })
-      .catch((err) => console.error('SW registration failed:', err));
+        // Recovery for blank screens
+        if (!navigator.serviceWorker.controller) {
+          window.location.reload();
+        }
+      });
   });
 }
