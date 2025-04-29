@@ -19,6 +19,7 @@ const CRITICAL_ASSETS = [
   '/static/js/main.js',
   '/static/css/main.css',
   '/apple-icon-180.png', // iOS specific icon first
+  '/offline.html', // ← this must be here
 ];
 
 // Debug utility for iOS
@@ -72,27 +73,30 @@ self.addEventListener('activate', function (event) {
 
 // ===== FETCH (IOS EMERGENCY FIX) ===== //
 self.addEventListener('fetch', function (event) {
-  // 1. Priority handling for iOS launch
   if (event.request.mode === 'navigate') {
     logIOS('iOS navigation request:', event.request.url);
     event.respondWith(
-      caches.match('/index.html').then(function (cached) {
-        // Immediately return cached HTML for iOS
-        if (cached) return cached;
-
-        // Fallback network request
-        return fetch(event.request)
-          .then(function (networkResponse) {
-            const clone = networkResponse.clone();
-            caches
-              .open(CACHE_NAME)
-              .then((cache) => cache.put(event.request, clone));
-            return networkResponse;
-          })
-          .catch(() => caches.match(OFFLINE_URL));
+      fetch(event.request).catch(() => caches.match(OFFLINE_URL))
+    );
+  } else {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        return (
+          cached ||
+          fetch(event.request)
+            .then((networkResponse) => {
+              if (networkResponse.ok) {
+                const clone = networkResponse.clone();
+                caches
+                  .open(CACHE_NAME)
+                  .then((cache) => cache.put(event.request, clone));
+              }
+              return networkResponse;
+            })
+            .catch(() => caches.match(OFFLINE_URL))
+        );
       })
     );
-    return;
   }
 
   // 2. Normal asset handling

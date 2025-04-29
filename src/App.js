@@ -6,33 +6,57 @@
  * - CSS baseline normalization
  * - React Router configuration
  * - Main layout structure with Header
- *
- * Routes:
- * - '/' - Shows the QuestionList component (all questions)
- * - '/questions/:id' - Shows QuestionDetail for a specific question
- * - '/domain/:domainName' - Shows filtered QuestionList by domain
+ * - Offline status banner
  */
 
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
-import Header from './Header'; // App-wide header component
+import Header from './Header';
 import QuestionList from './components/QuestionList/QuestionList';
 import QuestionDetail from './components/QuestionDetail/QuestionDetail';
-import { darkTheme } from './theme'; // Custom theme configuration
+import { darkTheme } from './theme';
 
 function App() {
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   return (
     <ThemeProvider theme={darkTheme}>
-      {/* Normalizes CSS across browsers */}
       <CssBaseline />
 
-      {/* Sets up client-side routing */}
       <BrowserRouter>
-        {/* Header appears on all routes */}
+        {/* Top-level offline banner */}
+        {isOffline && (
+          <div
+            style={{
+              background: '#ff9800',
+              color: '#000',
+              padding: '0.5em',
+              textAlign: 'center',
+              fontSize: '0.9rem',
+              fontWeight: 'bold',
+              zIndex: 999,
+              position: 'sticky',
+              top: 0,
+            }}>
+            ⚠️ You’re offline. Some features may be limited.
+          </div>
+        )}
+
         <Header />
 
-        {/* Main content area with route definitions */}
         <Routes>
           <Route path='/' element={<QuestionList />} />
           <Route path='/questions/:id' element={<QuestionDetail />} />
