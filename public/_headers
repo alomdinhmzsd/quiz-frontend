@@ -1,9 +1,10 @@
-/\*
-X-Frame-Options: DENY
-X-Content-Type-Options: nosniff
-Referrer-Policy: strict-origin-when-cross-origin
-Permissions-Policy: geolocation=()
+/index.html
+  Cache-Control: no-cache
+  Content-Type: text/html
 
 /service-worker.js
-Cache-Control: no-cache, no-store, must-revalidate
-Netlify-CDN-Cache-Control: no-cache
+  Cache-Control: no-cache
+  Service-Worker-Allowed: /
+
+/manifest.json
+  Cache-Control: public, max-age=0, must-revalidate
