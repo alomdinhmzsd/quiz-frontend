@@ -1,5 +1,9 @@
-# Add this to public-headers
+/\*
+X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: geolocation=()
 
 /service-worker.js
 Cache-Control: no-cache, no-store, must-revalidate
-Netlify-CDN-Cache-Control: no-cach
+Netlify-CDN-Cache-Control: no-cache
