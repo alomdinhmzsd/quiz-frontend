@@ -1,9 +1,10 @@
 /**
- * index.js - IOS HOTFIX ENTRY POINT
+ * index.js - STABLE SERVICE WORKER REGISTRATION v3.7
  * Changes:
- * 1. Added iOS-specific registration logic
- * 2. Removed StrictMode (temporarily for debugging)
- * 3. Added force-reload on controller change
+ * 1. Removed timestamp parameter causing refresh loops
+ * 2. Simplified iOS detection
+ * 3. Added controlled update checks
+ * 4. Restored StrictMode
  */
 
 import React from 'react';
@@ -13,33 +14,43 @@ import App from './App';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
-  // Removed StrictMode temporarily to isolate iOS issues
-  <App />
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
 );
 
-// ===== IOS-SPECIFIC SERVICE WORKER SETUP =====
-if ('serviceWorker' in navigator) {
+// ===== SERVICE WORKER REGISTRATION =====
+if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   window.addEventListener('load', () => {
-    const swUrl = `/service-worker.js?ios=${isIOS}&t=${Date.now()}`;
+    // Removed timestamp parameter - now uses file content hash
+    const swUrl = '/service-worker.js';
 
     navigator.serviceWorker
       .register(swUrl, {
         scope: '/',
-        updateViaCache: 'none', // Critical for iOS
+        updateViaCache: 'none',
       })
       .then((reg) => {
-        console.log('IOS SW Registered:', reg);
+        console.log(`Service Worker registered (iOS: ${isIOS})`);
 
-        // Force refresh when new SW takes over
+        // Only force reload if controller changes AFTER initial load
+        let initialLoad = true;
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-          console.log('IOS Controller Change - Reloading');
-          window.location.reload(true); // Hard reload
+          if (!initialLoad) {
+            console.log('Controller changed - reloading');
+            window.location.reload();
+          }
+          initialLoad = false;
         });
 
-        // Manual update check every 2 hours
-        setInterval(() => reg.update(), 2 * 60 * 60 * 1000);
-      });
+        // Check for updates every 2 hours
+        setInterval(() => {
+          console.log('Checking for updates...');
+          reg.update();
+        }, 2 * 60 * 60 * 1000);
+      })
+      .catch((err) => console.error('SW registration failed:', err));
   });
 }
