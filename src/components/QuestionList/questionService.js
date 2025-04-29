@@ -1,17 +1,22 @@
 import axios from 'axios';
 
 /**
- * Fetches all questions from the API
+ * Fetches all questions from the backend
+ *
  * @async
  * @returns {Promise<Array>} Array of question objects
- * @throws {Error} If API request fails
+ * @throws {Error} If request fails
  */
 export const fetchQuestions = async () => {
   try {
     console.log('API Base URL:', process.env.REACT_APP_API_URL);
+
+    // Make API call to get all questions
     const response = await axios.get(
       `${process.env.REACT_APP_API_URL}/api/questions`
     );
+
+    // Return the data or empty array
     return response.data.data || [];
   } catch (error) {
     console.error('Failed to fetch questions:', error);

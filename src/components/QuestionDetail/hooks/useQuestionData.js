@@ -2,16 +2,12 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 /**
- * Custom hook for fetching question data from API
- * @param {string} id - The ID of the question to fetch
- * @returns {object} Contains:
- *   - question: Current question data
- *   - loading: Loading state
- *   - error: Error message if request fails
- *   - allQuestions: Array of all questions
+ * Custom React hook to:
+ * - Fetch all questions from the backend
+ * - Fetch a specific question by ID (with fallback retry)
+ * - Return state for question, loading, error, and full question list
  */
 export const useQuestionData = (id) => {
-  // State management for question data
   const [question, setQuestion] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -19,25 +15,23 @@ export const useQuestionData = (id) => {
 
   useEffect(() => {
     /**
-     * Fetches question data from API
-     * - Gets both the specific question and all questions list
-     * - Handles errors gracefully
+     * Fetches:
+     * - All questions list
+     * - One specific question by ID (with retry fallback on failure)
+     * - Saves specific question into browser Cache Storage for offline use
      */
     const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        // Parallel API requests for better performance
+        // Parallel API requests
         const [allQuestionsRes, questionRes] = await Promise.all([
-          // Fetch all questions
           axios.get(`${process.env.REACT_APP_API_URL}/api/questions`),
 
-          // Fetch specific question with fallback retry
           axios
             .get(`${process.env.REACT_APP_API_URL}/api/questions/${id}`)
             .catch(async () => {
-              // Retry with questionId param if initial request fails
               return axios.get(
                 `${process.env.REACT_APP_API_URL}/api/questions/${id}`,
                 { params: { questionId: id } }
@@ -45,11 +39,20 @@ export const useQuestionData = (id) => {
             }),
         ]);
 
-        // Update state with fetched data
+        // Update React state
         setAllQuestions(allQuestionsRes.data.data || []);
         setQuestion(questionRes.data.data);
+
+        // ✅ Dynamically store the question in Cache Storage for offline use
+        if ('caches' in window) {
+          const cache = await caches.open('quiz-app-dynamic');
+          const responseClone = new Response(JSON.stringify(questionRes.data));
+          await cache.put(
+            `${process.env.REACT_APP_API_URL}/api/questions/${id}`,
+            responseClone
+          );
+        }
       } catch (err) {
-        // Capture either API error message or generic error
         setError(err.response?.data?.message || err.message);
       } finally {
         setLoading(false);
@@ -57,10 +60,10 @@ export const useQuestionData = (id) => {
     };
 
     fetchData();
-  }, [id]); // Re-run effect when question ID changes
+  }, [id]);
 
   return { question, loading, error, allQuestions };
 };
 
-// Debug log for API configuration
+// Debug log
 console.log('API Base URL:', process.env.REACT_APP_API_URL);

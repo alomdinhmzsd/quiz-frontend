@@ -1,147 +1,160 @@
 /* eslint-disable no-restricted-globals */
 /**
- * service-worker.js - v4.1
+ * service-worker.js - v4.2
  *
- * Full offline support for AWS Quiz App
- * - Caches frontend critical assets
- * - Caches backend questions API
- * - Provides graceful offline fallback
- * - Optimized for iOS and Chrome quirks
+ * PWA Quiz App Full Offline Support
+ * - Pre-cache critical frontend assets
+ * - Pre-cache all questions list (/api/questions)
+ * - Dynamically cache each individual question (/api/questions/:id)
+ * - Graceful offline fallback
+ * - Handles iOS and Chrome quirks
  */
 
 // ========== GLOBAL CONFIGURATION ==========
 
-// Service worker cache versioning
-const CACHE_VERSION = 'v4.1-complete';
-// Create a unique cache name based on today's date
+// Cache version and naming
+const CACHE_VERSION = 'v4.2-complete';
 const CACHE_NAME = 'quiz-app-' + new Date().toISOString().split('T')[0];
-// Offline fallback page location
+
+// Offline fallback page
 const OFFLINE_URL = '/offline.html';
-// Real working backend API URL for questions
+
+// Real backend API endpoint
 const API_QUESTIONS_URL =
   'https://quiz-backend-kb5w.onrender.com/api/questions';
 
-// List of critical assets to cache upfront
+// Critical assets to pre-cache
 const CRITICAL_ASSETS = [
   '/', // Root page
   '/index.html', // Main entry page
   '/manifest.json', // PWA manifest
   '/static/js/main.js', // Main JavaScript bundle
-  '/static/css/main.css', // Main CSS styles
-  '/apple-icon-180.png', // iOS homescreen icon
-  '/offline.html', // Fallback offline page
-  API_QUESTIONS_URL, // ✅ Backend questions API
+  '/static/css/main.css', // Main CSS
+  '/apple-icon-180.png', // iOS home screen icon
+  '/offline.html', // Fallback page when offline
+  API_QUESTIONS_URL, // Fetch and cache all questions list
 ];
 
-// Debug logger function for service worker messages
+// Debug logger utility
 function logSW(message) {
   console.log('[SW] ' + message);
 }
 
 // ========== INSTALL EVENT ==========
 
-// Fires when the service worker is first installed
+// Triggered when service worker is first installed
 self.addEventListener('install', (event) => {
-  logSW(`Installing version: ${CACHE_VERSION}`);
+  logSW(`Installing service worker: ${CACHE_VERSION}`);
 
   event.waitUntil(
     (async () => {
       const cache = await caches.open(CACHE_NAME);
 
       try {
-        // Pre-cache critical frontend files
+        // Pre-cache critical assets
         await cache.addAll(CRITICAL_ASSETS);
-        logSW('Critical assets cached successfully');
+        logSW('Critical assets pre-cached successfully');
 
-        // Manually fetch and cache the backend questions API
+        // Manually cache the full list of questions
         const response = await fetch(API_QUESTIONS_URL);
         if (response.ok) {
           await cache.put(API_QUESTIONS_URL, response.clone());
-          logSW('✅ /api/questions fetched and cached');
+          logSW('✅ /api/questions list cached');
         }
       } catch (err) {
-        console.error('[SW] Install error:', err);
+        console.error('[SW] Error during install:', err);
       }
     })()
   );
 
-  // Immediately activate the new service worker without waiting
-  self.skipWaiting();
+  self.skipWaiting(); // Force new SW to activate immediately
 });
 
 // ========== ACTIVATE EVENT ==========
 
-// Fires when the service worker is activated (after install)
+// Triggered when service worker is activated (after install)
 self.addEventListener('activate', (event) => {
   logSW('Activating new service worker...');
 
   event.waitUntil(
     caches
       .keys()
-      .then((cacheNames) => {
-        return Promise.all(
+      .then((cacheNames) =>
+        Promise.all(
           cacheNames.map((cacheName) => {
-            // Delete any old caches that do not match the current version
             if (!cacheName.includes(CACHE_VERSION)) {
               logSW('Deleting old cache:', cacheName);
               return caches.delete(cacheName);
             }
             return null;
           })
-        );
-      })
-      .then(() => self.clients.claim()) // Take control of open pages immediately
+        )
+      )
+      .then(() => self.clients.claim()) // Take over open tabs immediately
   );
 });
 
 // ========== FETCH EVENT ==========
 
-// Intercepts every network request made by the app
+// Intercepts every fetch made by the app
 self.addEventListener('fetch', (event) => {
-  // Handle navigation requests (page loads)
-  if (event.request.mode === 'navigate') {
-    logSW('Navigation fetch:', event.request.url);
+  const { request } = event;
+
+  // ========= SPECIAL CASE: Handle dynamic caching for individual questions =========
+  if (request.url.includes('/api/questions/') && request.method === 'GET') {
+    logSW('Dynamic question fetch detected:', request.url);
 
     event.respondWith(
-      fetch(event.request)
+      fetch(request)
         .then((response) => {
-          // Successful network response
+          // ✅ Save successful dynamic question fetch into cache
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
           return response;
         })
         .catch(() => {
-          // If network fails, fallback to offline page
-          return caches.match(OFFLINE_URL);
+          // ❌ If offline, serve the cached question if available
+          return caches.match(request).then((cached) => {
+            return cached || caches.match(OFFLINE_URL);
+          });
         })
     );
     return;
   }
 
-  // Handle all other asset requests (JS, CSS, API, images, etc.)
+  // ========= Handle page navigation =========
+  if (request.mode === 'navigate') {
+    logSW('Navigation fetch:', request.url);
+
+    event.respondWith(
+      fetch(request)
+        .then((response) => response)
+        .catch(() => caches.match(OFFLINE_URL)) // Fallback to offline page
+    );
+    return;
+  }
+
+  // ========= Handle other static assets (JS, CSS, images) =========
   event.respondWith(
-    caches.match(event.request).then((cached) => {
+    caches.match(request).then((cached) => {
       if (cached) {
-        // Serve from cache if available
-        return cached;
+        return cached; // ✅ Serve cached file if exists
       }
 
-      // Otherwise, try to fetch it live
-      return fetch(event.request)
+      return fetch(request)
         .then((networkResponse) => {
           if (networkResponse.ok) {
             const clone = networkResponse.clone();
-            caches
-              .open(CACHE_NAME)
-              .then((cache) => cache.put(event.request, clone));
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
           }
           return networkResponse;
         })
-        .catch(() => {
-          // If both cache and network fail, fallback to offline page
-          return caches.match(OFFLINE_URL);
-        });
+        .catch(() => caches.match(OFFLINE_URL)); // Fallback if all fails
     })
   );
 });
 
 // ========== INITIALIZATION LOG ==========
-logSW('Service Worker loaded: ' + CACHE_VERSION);
+logSW('Service Worker fully loaded: ' + CACHE_VERSION);
