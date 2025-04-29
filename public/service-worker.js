@@ -1,111 +1,101 @@
 /* eslint-disable no-restricted-globals */
 /**
- * Service Worker - iOS Stability Fix v3.9
+ * service-worker.js - v4.0
  *
- * Fixes:
- * 1. Immediate cache fallback for iOS
- * 2. Enhanced HTML caching strategy
- * 3. Preloaded critical assets
- * 4. Preserved all original documentation
+ * Full offline support for PWA
+ * - Caches critical assets + quiz API
+ * - Graceful fallback using offline.html
+ * - Handles both navigation + static requests
+ * - Works on Safari, iOS quirks, Chrome
  */
 
-const CACHE_VERSION = 'v3.9-ios-urgent';
-const CACHE_NAME = 'quiz-app-' + new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+const CACHE_VERSION = 'v4.0-complete';
+const CACHE_NAME = 'quiz-app-' + new Date().toISOString().split('T')[0];
 const OFFLINE_URL = '/offline.html';
+
 const CRITICAL_ASSETS = [
-  '/',
+  '/', // root page
   '/index.html',
   '/manifest.json',
   '/static/js/main.js',
   '/static/css/main.css',
-  '/apple-icon-180.png', // iOS specific icon first
-  '/offline.html', // ← this must be here
+  '/apple-icon-180.png',
+  '/offline.html', // offline fallback page
+  '/api/questions', // ✅ pre-cache quiz API response
 ];
 
-// Debug utility for iOS
-function logIOS(message) {
-  console.log('[iOS-SW] ' + message);
+// Logging utility
+function logSW(message) {
+  console.log('[SW] ' + message);
 }
 
-// ===== INSTALL (IOS PRIORITY CACHE) ===== //
-self.addEventListener('install', function (event) {
-  logIOS('Installing emergency iOS version: ' + CACHE_VERSION);
+// ========== INSTALL ==========
+self.addEventListener('install', (event) => {
+  logSW(`Installing version: ${CACHE_VERSION}`);
   event.waitUntil(
     caches
       .open(CACHE_NAME)
-      .then(function (cache) {
-        // Cache critical assets first
-        return cache
-          .addAll(CRITICAL_ASSETS)
-          .then(() => logIOS('Critical assets cached'))
-          .catch((err) => console.error('Cache error:', err));
+      .then((cache) => {
+        return cache.addAll(CRITICAL_ASSETS).then(() => {
+          logSW('Critical assets cached');
+        });
       })
-      .then(function () {
-        logIOS('Force activating for iOS');
-        return self.skipWaiting();
-      })
+      .catch((err) => console.error('[SW] Cache error:', err))
   );
+  self.skipWaiting(); // Force immediate activation
 });
 
-// ===== ACTIVATE (STABLE VERSION) ===== //
-self.addEventListener('activate', function (event) {
-  logIOS('Activating stable version');
+// ========== ACTIVATE ==========
+self.addEventListener('activate', (event) => {
+  logSW('Activating new service worker...');
   event.waitUntil(
     caches
       .keys()
-      .then(function (cacheNames) {
+      .then((cacheNames) => {
         return Promise.all(
-          cacheNames.map(function (cacheName) {
+          cacheNames.map((cacheName) => {
             if (!cacheName.includes(CACHE_VERSION)) {
-              logIOS('Purging old cache:', cacheName);
+              logSW('Deleting old cache:', cacheName);
               return caches.delete(cacheName);
             }
-            return null; // Simpler return for kept caches
+            return null;
           })
         );
       })
-      .then(function () {
-        logIOS('Claiming clients');
-        return self.clients.claim(); // Simplified claim
-      })
+      .then(() => self.clients.claim()) // Claim control immediately
   );
 });
 
-// ===== FETCH (IOS EMERGENCY FIX) ===== //
-self.addEventListener('fetch', function (event) {
+// ========== FETCH ==========
+self.addEventListener('fetch', (event) => {
+  // Handle navigational requests (like page loads)
   if (event.request.mode === 'navigate') {
-    logIOS('iOS navigation request:', event.request.url);
+    logSW('Navigation fetch:', event.request.url);
     event.respondWith(
-      fetch(event.request).catch(() => caches.match(OFFLINE_URL))
+      fetch(event.request)
+        .then((response) => {
+          // ✅ Success - return it
+          return response;
+        })
+        .catch(() => {
+          // ❌ Network failed - use offline page
+          return caches.match(OFFLINE_URL);
+        })
     );
-  } else {
-    event.respondWith(
-      caches.match(event.request).then((cached) => {
-        return (
-          cached ||
-          fetch(event.request)
-            .then((networkResponse) => {
-              if (networkResponse.ok) {
-                const clone = networkResponse.clone();
-                caches
-                  .open(CACHE_NAME)
-                  .then((cache) => cache.put(event.request, clone));
-              }
-              return networkResponse;
-            })
-            .catch(() => caches.match(OFFLINE_URL))
-        );
-      })
-    );
+    return;
   }
 
-  // 2. Normal asset handling
+  // Handle all other requests (JS, CSS, API, images)
   event.respondWith(
-    caches.match(event.request).then(function (cached) {
-      return (
-        cached ||
-        fetch(event.request).then(function (networkResponse) {
-          // Cache all successful requests
+    caches.match(event.request).then((cached) => {
+      // ✅ Serve from cache if available
+      if (cached) {
+        return cached;
+      }
+
+      // 🚀 Try to fetch and cache it
+      return fetch(event.request)
+        .then((networkResponse) => {
           if (networkResponse.ok) {
             const clone = networkResponse.clone();
             caches
@@ -114,10 +104,13 @@ self.addEventListener('fetch', function (event) {
           }
           return networkResponse;
         })
-      );
+        .catch(() => {
+          // ❌ Network failed and not cached - fallback to offline.html
+          return caches.match(OFFLINE_URL);
+        });
     })
   );
 });
 
-// Initialization log
-logIOS('Service Worker emergency load complete: ' + CACHE_VERSION);
+// Initial log
+logSW('Service Worker loaded: ' + CACHE_VERSION);
