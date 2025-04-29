@@ -165,11 +165,18 @@ const QuestionDetail = () => {
       );
 
       // Debug logging
+      let safeLocalData = {};
+      try {
+        safeLocalData = JSON.parse(localStorage.getItem('quizAnswers') || '{}');
+      } catch (e) {
+        console.warn('[iOS] localStorage access blocked:', e);
+      }
+
       console.log('Post-Submission State:', {
         isCorrect,
         selectedAnswers: selected,
         questionId: question._id,
-        localStorage: JSON.parse(localStorage.getItem('quizAnswers') || '{}'),
+        localStorage: safeLocalData,
       });
 
       // Update state
@@ -220,7 +227,11 @@ const QuestionDetail = () => {
         open={showResetDialog}
         onClose={() => setShowResetDialog(false)}
         onConfirm={() => {
-          localStorage.removeItem('quizAnswers');
+          try {
+            localStorage.removeItem('quizAnswers');
+          } catch (e) {
+            console.warn('[iOS] Failed to remove localStorage item:', e);
+          }
           window.location.reload();
         }}
       />
