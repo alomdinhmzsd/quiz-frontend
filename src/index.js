@@ -1,45 +1,45 @@
 /**
- * index.js - Application Entry Point
- *
- * The first JavaScript file executed when the application starts.
- * Responsibilities:
- * - Renders the root React component
- * - Sets up StrictMode for development checks
- * - Registers service worker for PWA features
- * - Initializes web vitals reporting
+ * index.js - IOS HOTFIX ENTRY POINT
+ * Changes:
+ * 1. Added iOS-specific registration logic
+ * 2. Removed StrictMode (temporarily for debugging)
+ * 3. Added force-reload on controller change
  */
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
-import reportWebVitals from './reportWebVitals';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
+  // Removed StrictMode temporarily to isolate iOS issues
+  <App />
 );
 
-// Simplified service worker registration
-if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+// ===== IOS-SPECIFIC SERVICE WORKER SETUP =====
+if ('serviceWorker' in navigator) {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
   window.addEventListener('load', () => {
+    const swUrl = `/service-worker.js?ios=${isIOS}&t=${Date.now()}`;
+
     navigator.serviceWorker
-      .register('/service-worker.js?' + Date.now())
-      .then((reg) => {
-        console.log('SW registered:', reg);
-
-        // Check for updates every hour
-        setInterval(() => reg.update(), 60 * 60 * 1000);
-
-        // Handle controller change (for iOS)
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          window.location.reload();
-        });
+      .register(swUrl, {
+        scope: '/',
+        updateViaCache: 'none', // Critical for iOS
       })
-      .catch((err) => console.error('SW registration failed:', err));
+      .then((reg) => {
+        console.log('IOS SW Registered:', reg);
+
+        // Force refresh when new SW takes over
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          console.log('IOS Controller Change - Reloading');
+          window.location.reload(true); // Hard reload
+        });
+
+        // Manual update check every 2 hours
+        setInterval(() => reg.update(), 2 * 60 * 60 * 1000);
+      });
   });
 }
-
-reportWebVitals();
