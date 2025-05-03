@@ -1,24 +1,7 @@
-/**
- * QuestionDetail.js - Final Patched Version
- *
- * Complete Feature Set:
- * 1. Randomized answer display with preserved order after submission
- * 2. Robust answer selection and validation
- * 3. Progress tracking with navigation controls
- * 4. Comprehensive error handling
- * 5. Fixed all reported issues
- *
- * Patch Notes:
- * - Fixed "setSelected is not a function" in reset functionality
- * - Fixed "jumpId.toLowerCase is not a function" error
- * - Added input validation for jump-to-ID feature
- * - Enhanced debug logging
- * - Maintained all existing documentation
- */
-
+// ✅ FINAL: Fully commented and JSDoc-documented version of QuestionDetail.js
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Container } from '@mui/material';
+import { Container, Box, CircularProgress, Alert, Button } from '@mui/material';
 import { useQuestionData } from './hooks/useQuestionData';
 import { useQuestionUI } from './hooks/useQuestionUI';
 import { handleSubmit, resetQuestion } from './utils/answerHandlers';
@@ -28,29 +11,27 @@ import BackButton from './BackButton';
 import QuestionHeader from './QuestionHeader';
 import ActionButtons from './ActionButtons';
 import AnswerItem from './AnswerItem';
-import { Box, CircularProgress, Alert, Button } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
-// ==================== UTILITY FUNCTIONS ====================
-
 /**
- * Normalizes answer text for consistent comparison
- * @param {string} text - Raw answer text
- * @returns {string} Normalized text (lowercase, no prefixes/special chars)
+ * Normalize text values for duplicate detection.
+ * Removes prefixes, underscores, and trims/lowers the case.
+ *
+ * @param {string} text - Text value to normalize
+ * @returns {string} - Cleaned normalized string
  */
-const normalizeAnswerText = (text) => {
-  if (!text) return '';
-  return text
-    .replace(/^text-/, '')
+const normalizeAnswerText = (text) =>
+  text
+    ?.replace(/^text-/, '')
     .replace(/_/g, ' ')
     .trim()
-    .toLowerCase();
-};
+    .toLowerCase() || '';
 
 /**
- * Detects and marks duplicate answers while preserving all options
+ * Flag answers that are textual duplicates for display warnings.
+ *
  * @param {Array} answers - Array of answer objects
- * @returns {Array} Processed answers with duplicate flags
+ * @returns {Array} - Array with `isDuplicate` and `normalizedText` fields
  */
 const detectDuplicates = (answers) => {
   const contentMap = {};
@@ -59,32 +40,25 @@ const detectDuplicates = (answers) => {
       const normalized = normalizeAnswerText(answer.text);
       const isDuplicate = contentMap[normalized];
       contentMap[normalized] = true;
-      return {
-        ...answer,
-        isDuplicate,
-        normalizedText: normalized,
-      };
+      return { ...answer, isDuplicate, normalizedText: normalized };
     }) || []
   );
 };
 
 /**
- * Generates stable unique IDs for answers
+ * Derives a unique key for rendering an answer.
+ *
  * @param {Object} answer - Answer object
- * @returns {string} Unique identifier (prefers DB _id, falls back to generated)
+ * @returns {string} - Unique ID for that answer
  */
-const getAnswerId = (answer) => {
-  return (
-    answer?._id ||
-    answer?.id ||
-    `gen-${Math.random().toString(36).substr(2, 9)}`
-  );
-};
+const getAnswerId = (answer) =>
+  answer?._id || answer?.id || `gen-${Math.random().toString(36).substr(2, 9)}`;
 
 /**
- * Secure Fisher-Yates shuffle implementation
- * @param {Array} array - Array to shuffle
- * @returns {Array} New shuffled array (non-mutating)
+ * Shuffles answers array using Fisher-Yates algorithm.
+ *
+ * @param {Array} array - Answers array
+ * @returns {Array} - Shuffled array
  */
 const shuffleAnswers = (array) => {
   const shuffled = [...array];
@@ -95,14 +69,13 @@ const shuffleAnswers = (array) => {
   return shuffled;
 };
 
-// ==================== MAIN COMPONENT ====================
-
+/**
+ * Main Question Detail Component.
+ * Handles data fetch, state transitions, answer selection, and rendering.
+ */
 const QuestionDetail = () => {
-  // Router hooks for navigation and params
   const { id } = useParams();
   const navigate = useNavigate();
-
-  // Custom hooks for data and UI state management
   const { question, loading, error, allQuestions } = useQuestionData(id);
   const {
     selected,
@@ -117,42 +90,37 @@ const QuestionDetail = () => {
     setShowExplanation,
   } = useQuestionUI(question);
 
-  // Component state
   const [displayedAnswers, setDisplayedAnswers] = useState([]);
   const [jumpToId, setJumpToId] = useState('');
 
-  // ==================== EFFECTS ====================
+  /**
+   * Reset internal state and reshuffle answers when question changes.
+   */
+  /**
+   * Reset state (answers, correctness) when question ID changes.
+   */
+  useEffect(() => {
+    setSelected([]);
+    setSubmitted(false);
+    setIsCorrect(false);
+  }, [id, setSelected, setSubmitted, setIsCorrect]);
 
   /**
-   * Handles answer processing when question changes
-   * - Processes duplicates
-   * - Manages randomization
-   * - Resets selection state
+   * Recompute displayedAnswers whenever the question or submission state changes.
    */
   useEffect(() => {
     if (question) {
-      // Process answers (duplicate detection + shuffling)
       const processedAnswers = detectDuplicates(question.answers);
-
-      // Only shuffle if not submitted (preserve order after submission)
       const answersToDisplay = submitted
         ? processedAnswers
         : shuffleAnswers(processedAnswers);
-
       setDisplayedAnswers(answersToDisplay);
-
-      // Reset selection state for new question
-      setSelected([]);
-      setSubmitted(false);
-      setIsCorrect(false);
     }
-  }, [id, question, submitted, setSelected, setSubmitted, setIsCorrect]);
-
-  // ==================== EVENT HANDLERS ====================
+  }, [question, submitted]);
 
   /**
-   * Handles answer selection
-   * @param {string} answerId - ID of selected answer
+   * Handle answer selection (radio or checkbox logic)
+   * @param {string} answerId - Selected answer ID
    */
   const handleSelect = (answerId) => {
     if (question?.type === 'single') {
@@ -167,116 +135,63 @@ const QuestionDetail = () => {
   };
 
   /**
-   * Handles question submission with validation
-   * - Checks correctness
-   * - Updates state
-   * - Persists to localStorage
+   * Validate submission, mark correctness and reveal explanations.
    */
   const handleSubmitAnswer = async () => {
-    console.log('--- Starting Submission ---');
-    const isCorrect = await handleSubmit(
+    const result = await handleSubmit(
       question,
       selected,
       setIsCorrect,
       setSubmitted
     );
-
-    // Debug logging with safe localStorage access
-    let safeLocalData = {};
-    try {
-      safeLocalData = JSON.parse(localStorage.getItem('quizAnswers') || '{}');
-    } catch (e) {
-      console.warn('[iOS] localStorage access blocked:', e);
-    }
-
-    console.log('Post-Submission State:', {
-      isCorrect,
-      selectedAnswers: selected,
-      questionId: question._id,
-      localStorage: safeLocalData,
-    });
-
-    // Update state only if we got a definitive result
-    if (isCorrect !== undefined) {
-      setIsCorrect(isCorrect);
-    }
+    if (result !== undefined) setIsCorrect(result);
     setSubmitted(true);
   };
 
   /**
-   * Resets question state
-   * - Clears selections
-   * - Resets submission state
+   * Clear selected answers and feedback state.
    */
   const handleResetQuestion = () => {
     resetQuestion(setSelected, setSubmitted, setIsCorrect);
   };
 
-  /**
-   * Handles jumping to specific question by ID
-   * @param {string|Event} jumpInput - Either the ID string or event object
-   */
-  const handleJumpToQuestion = (jumpInput) => {
-    // Extract ID from either direct string or from state
-    const targetId = typeof jumpInput === 'string' ? jumpInput : jumpToId;
-
-    // Validate input
-    if (!targetId || typeof targetId !== 'string') {
-      console.warn('Invalid question ID:', targetId);
-      return;
-    }
-
-    // Normalize and find question
-    const normalizedId = String(targetId).toLowerCase().trim();
-    const target = allQuestions.find(
-      (q) => q.questionId?.toLowerCase() === normalizedId
-    );
-
-    if (target) {
-      navigate(`/questions/${target._id}`);
-      setJumpToId(''); // Clear input after successful jump
-    } else {
-      console.warn(`Question not found: ${targetId}`);
-    }
-  };
-
-  /**
-   * Handles Enter key in jump-to-question input
-   * @param {Object} e - Keyboard event
-   */
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleJumpToQuestion(e);
-    }
-  };
-
-  // ==================== RENDER LOGIC ====================
-
-  if (loading) return <LoadingState />;
-  if (error || !question)
-    return <ErrorState error={error} navigate={navigate} />;
-
-  // Calculate progress metrics
   const questionNumber =
     allQuestions.findIndex(
       (q) => q._id === id || q.questionId?.toLowerCase() === id.toLowerCase()
     ) + 1;
   const progress = (questionNumber / allQuestions.length) * 100;
 
+  if (loading) return <LoadingState />;
+  if (error || !question)
+    return <ErrorState error={error} navigate={navigate} />;
+
+  // Suppress images and references until user submits answer
+  const safeQuestion = {
+    ...question,
+    reference: submitted ? question.reference : null,
+    image: submitted ? question.image : null,
+  };
+
   return (
     <Container maxWidth='md' sx={{ py: 4 }}>
-      {/* Progress tracking section */}
       <ProgressSection
         questionNumber={questionNumber}
         totalQuestions={allQuestions.length}
         progress={progress}
         submitted={submitted}
         setShowResetDialog={setShowResetDialog}
-        checkAnswerSaved={(qId) => !!localStorage.getItem('quizAnswers')?.[qId]}
+        checkAnswerSaved={(qId) => {
+          try {
+            const stored = JSON.parse(
+              localStorage.getItem('quizAnswers') || '{}'
+            );
+            return !!stored[qId];
+          } catch {
+            return false;
+          }
+        }}
       />
 
-      {/* Reset confirmation dialog */}
       <ResetDialog
         open={showResetDialog}
         onClose={() => setShowResetDialog(false)}
@@ -290,19 +205,16 @@ const QuestionDetail = () => {
         }}
       />
 
-      {/* Back navigation button */}
       <BackButton navigate={navigate} />
 
-      {/* Question header with metadata */}
       <QuestionHeader
-        question={question}
+        question={safeQuestion}
         showExplanation={showExplanation}
         setShowExplanation={setShowExplanation}
         submitted={submitted}
         isCorrect={isCorrect}
       />
 
-      {/* Answer list with randomization */}
       {displayedAnswers.map((answer) => (
         <AnswerItem
           key={getAnswerId(answer)}
@@ -314,7 +226,6 @@ const QuestionDetail = () => {
         />
       ))}
 
-      {/* Action buttons with all fixed functionality */}
       <ActionButtons
         submitted={submitted}
         question={question}
@@ -332,19 +243,17 @@ const QuestionDetail = () => {
             if (newQuestion) navigate(`/questions/${newQuestion._id}`);
           }
         }}
-        handleJumpToQuestion={() => handleJumpToQuestion(jumpToId)}
-        handleKeyDown={handleKeyDown}
+        handleJumpToQuestion={() => navigate(`/questions/${jumpToId}`)}
+        handleKeyDown={(e) =>
+          e.key === 'Enter' && navigate(`/questions/${jumpToId}`)
+        }
       />
     </Container>
   );
 };
 
-// ==================== SUB-COMPONENTS ====================
-
 /**
- * Loading state component
- * - Displays circular progress indicator
- * - Centered vertically and horizontally
+ * Display loading indicator while data is being fetched.
  */
 const LoadingState = () => (
   <Box
@@ -357,10 +266,7 @@ const LoadingState = () => (
 );
 
 /**
- * Error state component
- * @param {Object} props - Component props
- * @param {Error} props.error - Error object to display
- * @param {function} props.navigate - Navigation function
+ * Display error UI if question fails to load.
  */
 const ErrorState = ({ error, navigate }) => (
   <Container maxWidth='md' sx={{ py: 4 }}>
