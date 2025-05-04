@@ -5,6 +5,10 @@
  * - Progress tracking
  * - Statistics calculation
  * - State management
+ *
+ * Updated Features:
+ * - Mastered questions tracking (5+ correct answers)
+ * - Comprehensive stats calculation
  */
 
 /**
@@ -24,8 +28,8 @@ export const normalizeAnswerText = (text) => {
 };
 
 /**
- * Calculates user statistics from saved answers
- * @returns {object} Stats with correct, incorrect, total, accuracy, and domains
+ * Calculates comprehensive user statistics from saved answers
+ * @returns {object} Stats with correct, incorrect, total, accuracy, domains, and mastered counts
  */
 export const calculateStats = () => {
   const defaultStats = {
@@ -34,6 +38,7 @@ export const calculateStats = () => {
     total: 0,
     accuracy: 0,
     domains: {},
+    mastered: 0,
   };
 
   try {
@@ -50,17 +55,37 @@ export const calculateStats = () => {
     const incorrect = answers.filter((a) => !a?.isCorrect).length;
     const total = correct + incorrect;
 
-    // Calculate domain breakdown
+    // Calculate domain breakdown and mastered questions
     const domains = {};
-    answers.forEach((answer) => {
-      if (!answer?.domain) return;
+    const questionStats = {};
+    let mastered = 0;
 
-      if (!domains[answer.domain]) {
-        domains[answer.domain] = { correct: 0, total: 0 };
+    answers.forEach((answer) => {
+      // Domain stats
+      if (answer?.domain) {
+        if (!domains[answer.domain]) {
+          domains[answer.domain] = { correct: 0, total: 0 };
+        }
+        domains[answer.domain].total++;
+        if (answer.isCorrect) {
+          domains[answer.domain].correct++;
+        }
       }
-      domains[answer.domain].total++;
-      if (answer.isCorrect) {
-        domains[answer.domain].correct++;
+
+      // Question-level stats
+      if (answer?.questionId) {
+        if (!questionStats[answer.questionId]) {
+          questionStats[answer.questionId] = { correct: 0, total: 0 };
+        }
+        questionStats[answer.questionId].total++;
+        if (answer.isCorrect) {
+          questionStats[answer.questionId].correct++;
+        }
+
+        // Check if mastered (5+ correct)
+        if (questionStats[answer.questionId].correct >= 5) {
+          mastered++;
+        }
       }
     });
 
@@ -70,6 +95,7 @@ export const calculateStats = () => {
       total,
       accuracy: total > 0 ? Math.round((correct / total) * 100) : 0,
       domains,
+      mastered,
     };
   } catch (error) {
     console.error('Error calculating stats:', error);

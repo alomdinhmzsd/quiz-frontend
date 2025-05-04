@@ -1,13 +1,3 @@
-/**
- * components/StatsPanel.js - New Component
- *
- * Displays user progress statistics with:
- * - Correct/incorrect counts
- * - Accuracy percentage
- * - Domain breakdown
- * - Reset progress button
- */
-
 import React, { useEffect, useState } from 'react';
 import {
   Box,
@@ -20,6 +10,18 @@ import {
 } from '@mui/material';
 import { calculateStats } from './QuestionDetail/utils/answerHandlers';
 
+/**
+ * StatsPanel component - Displays comprehensive user progress statistics
+ *
+ * Features:
+ * - Correct/incorrect counts
+ * - Accuracy percentage
+ * - Domain breakdown
+ * - Mastered questions count
+ * - Reset progress button
+ *
+ * @returns {JSX.Element} Interactive stats dashboard
+ */
 const StatsPanel = () => {
   const [stats, setStats] = useState({
     correct: 0,
@@ -27,9 +29,10 @@ const StatsPanel = () => {
     total: 0,
     accuracy: 0,
     domains: {},
+    mastered: 0,
   });
 
-  // Load and calculate stats when component mounts
+  // Load and calculate stats when component mounts or storage changes
   useEffect(() => {
     const updateStats = () => {
       const currentStats = calculateStats();
@@ -38,7 +41,7 @@ const StatsPanel = () => {
 
     updateStats();
 
-    // Optional: Update stats when localStorage changes
+    // Update stats when localStorage changes
     const handleStorageChange = () => updateStats();
     window.addEventListener('storage', handleStorageChange);
 
@@ -47,10 +50,17 @@ const StatsPanel = () => {
     };
   }, []);
 
+  /**
+   * Handle resetting all progress data
+   */
   const handleResetProgress = () => {
-    if (window.confirm('Are you sure you want to reset all progress?')) {
+    if (
+      window.confirm(
+        'Are you sure you want to reset all progress? This cannot be undone.'
+      )
+    ) {
       localStorage.removeItem('quizAnswers');
-      setStats(calculateStats()); // Refresh stats after reset
+      setStats(calculateStats()); // Refresh with empty stats
     }
   };
 
@@ -60,6 +70,7 @@ const StatsPanel = () => {
         Your Progress
       </Typography>
 
+      {/* Progress bar with accuracy */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
         <Box sx={{ width: '100%', mr: 2 }}>
           <LinearProgress
@@ -73,7 +84,15 @@ const StatsPanel = () => {
         </Typography>
       </Box>
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+      {/* Stats chips */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 1,
+          mb: 2,
+          '& > *': { flex: '1 1 auto', minWidth: '120px' },
+        }}>
         <Chip
           label={`✅ Correct: ${stats.correct}`}
           color='success'
@@ -89,8 +108,14 @@ const StatsPanel = () => {
           color='info'
           variant='outlined'
         />
+        <Chip
+          label={`🎯 Mastered: ${stats.mastered}`}
+          color='success'
+          variant='outlined'
+        />
       </Box>
 
+      {/* Domain breakdown */}
       {Object.keys(stats.domains).length > 0 && (
         <>
           <Divider sx={{ my: 2 }} />
@@ -118,6 +143,7 @@ const StatsPanel = () => {
         </>
       )}
 
+      {/* Reset button */}
       <Button
         variant='outlined'
         color='error'
