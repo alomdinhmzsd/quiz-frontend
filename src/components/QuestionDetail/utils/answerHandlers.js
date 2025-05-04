@@ -107,10 +107,14 @@ export const calculateStats = () => {
  * Handles answer submission and validation
  * @param {object} question - Current question
  * @param {array} selected - Selected answer IDs
- * @param {function} setIsCorrect - Correctness state setter
- * @param {function} setSubmitted - Submission state setter
+ * @param {function} setIsCorrect - State setter for correctness
+ * @param {function} setSubmitted - State setter for submission status
  * @returns {boolean} Whether submission was correct
  */
+
+// Store the timestamp of last submission at module level
+let lastSubmissionTime = 0;
+
 export const handleSubmit = async (
   question,
   selected,
@@ -119,15 +123,24 @@ export const handleSubmit = async (
 ) => {
   if (!question || !selected.length) return;
 
+  // Debounce submissions - minimum 1 second between submissions
+  const now = Date.now();
+  if (now - lastSubmissionTime < 1000) {
+    console.log('Submission debounced - too quick after previous attempt');
+    return;
+  }
+  lastSubmissionTime = now;
+
   try {
-    // Debug: Log raw submission data
+    const normalizedQuestionId = question.questionId.trim().toLowerCase();
+
     console.log('Submission Debug:', {
-      questionId: question._id,
+      normalizedQuestionId,
       selectedAnswers: selected,
       correctAnswerIds: question.answers
         .filter((a) => a.isCorrect)
         .map((a) => a._id),
-      questionText: question.question,
+      questionText: question.question.substring(0, 50) + '...',
     });
 
     // Determine correctness
@@ -142,20 +155,23 @@ export const handleSubmit = async (
     setIsCorrect(isCorrect);
     setSubmitted(true);
 
-    // Save to localStorage
+    // Save attempt
     const savedAnswers = JSON.parse(
       localStorage.getItem('quizAnswers') || '{}'
     );
-    savedAnswers[question._id] = {
+    const attemptId = `attempt_${now}`; // Using the debounced timestamp
+
+    savedAnswers[attemptId] = {
       selected,
       isCorrect,
       timestamp: new Date().toISOString(),
-      questionId: question.questionId,
-      questionText: question.question,
+      questionId: normalizedQuestionId,
       domain: question.domain,
       type: question.type,
     };
+
     localStorage.setItem('quizAnswers', JSON.stringify(savedAnswers));
+    window.dispatchEvent(new Event('storage'));
 
     return isCorrect;
   } catch (error) {
@@ -191,4 +207,50 @@ export const resetAllProgress = () => {
     console.error('Error resetting progress:', error);
     return false;
   }
+};
+
+// Add these new functions to answerHandlers.js
+
+/**
+ * MANUAL MASTERY OVERRIDES
+ * Allows users to manually mark questions as mastered/unmastered
+ */
+
+const MANUAL_MASTERY_KEY = 'manualMasteryOverrides';
+
+/**
+ * Set manual mastery status for a question
+ * @param {string} questionId - The question ID
+ * @param {boolean} isMastered - Whether to mark as mastered
+ */
+export const setManualMastery = (questionId, isMastered) => {
+  const overrides = JSON.parse(localStorage.getItem(MANUAL_MASTERY_KEY)) || {};
+  overrides[questionId] = isMastered;
+  localStorage.setItem(MANUAL_MASTERY_KEY, JSON.stringify(overrides));
+};
+
+/**
+ * Get mastery status (checks manual override first, then automatic stats)
+ * @param {string} questionId - The question ID
+ * @returns {boolean} Whether the question is mastered
+ */
+export const getMasteryStatus = (questionId) => {
+  // Check manual override first
+  const overrides = JSON.parse(localStorage.getItem(MANUAL_MASTERY_KEY)) || {};
+  if (questionId in overrides) return overrides[questionId]; // Manual override takes priority
+
+  // Fall back to automatic mastery (5+ correct answers)
+  const stats = JSON.parse(localStorage.getItem('quizAnswers')) || {};
+  const questionStats = stats[questionId] || { correct: 0 };
+  return questionStats.correct >= 5;
+};
+
+/**
+ * Reset manual mastery for a question (remove override)
+ * @param {string} questionId - The question ID
+ */
+export const resetManualMastery = (questionId) => {
+  const overrides = JSON.parse(localStorage.getItem(MANUAL_MASTERY_KEY)) || {};
+  delete overrides[questionId];
+  localStorage.setItem(MANUAL_MASTERY_KEY, JSON.stringify(overrides));
 };

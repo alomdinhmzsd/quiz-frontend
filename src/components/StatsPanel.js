@@ -1,3 +1,4 @@
+// 📁 src/components/StatsPanel.js
 import React, { useEffect, useState } from 'react';
 import {
   Box,
@@ -8,59 +9,105 @@ import {
   Divider,
   Paper,
 } from '@mui/material';
-import { calculateStats } from './QuestionDetail/utils/answerHandlers';
 
-/**
- * StatsPanel component - Displays comprehensive user progress statistics
- *
- * Features:
- * - Correct/incorrect counts
- * - Accuracy percentage
- * - Domain breakdown
- * - Mastered questions count
- * - Reset progress button
- *
- * @returns {JSX.Element} Interactive stats dashboard
- */
-const StatsPanel = () => {
-  const [stats, setStats] = useState({
+const calculateStats = () => {
+  const defaultStats = {
     correct: 0,
     incorrect: 0,
     total: 0,
     accuracy: 0,
     domains: {},
     mastered: 0,
-  });
+  };
 
-  // Load and calculate stats when component mounts or storage changes
+  try {
+    const savedAnswers = JSON.parse(localStorage.getItem('quizAnswers')) || {};
+    const manualMastery =
+      JSON.parse(localStorage.getItem('manualMasteryOverrides')) || {};
+
+    const uniqueAnswers = {};
+    Object.values(savedAnswers).forEach((entry) => {
+      const qid = entry.questionId;
+      if (!uniqueAnswers[qid]) {
+        uniqueAnswers[qid] = entry;
+      }
+    });
+
+    const answers = Object.values(uniqueAnswers);
+    const correct = answers.filter((a) => a?.isCorrect).length;
+    const incorrect = answers.filter((a) => !a?.isCorrect).length;
+    const total = answers.length;
+
+    const domains = {};
+    const questionStats = {};
+
+    answers.forEach((answer) => {
+      if (answer?.domain) {
+        if (!domains[answer.domain]) {
+          domains[answer.domain] = { correct: 0, total: 0 };
+        }
+        domains[answer.domain].total++;
+        if (answer.isCorrect) {
+          domains[answer.domain].correct++;
+        }
+      }
+
+      if (answer?.questionId) {
+        if (!questionStats[answer.questionId]) {
+          questionStats[answer.questionId] = { correct: 0, total: 0 };
+        }
+        questionStats[answer.questionId].total++;
+        if (answer.isCorrect) {
+          questionStats[answer.questionId].correct++;
+        }
+      }
+    });
+
+    const autoMastered = Object.values(questionStats).filter(
+      (s) => s.correct >= 5
+    ).length;
+    const manualMasteredCount = Object.values(manualMastery).filter(
+      (m) => m === true
+    ).length;
+
+    return {
+      correct,
+      incorrect,
+      total,
+      accuracy: total > 0 ? Math.round((correct / total) * 100) : 0,
+      domains,
+      mastered: autoMastered + manualMasteredCount,
+    };
+  } catch (error) {
+    console.error('Error calculating stats:', error);
+    return defaultStats;
+  }
+};
+
+const StatsPanel = () => {
+  const [stats, setStats] = useState(calculateStats());
+
   useEffect(() => {
-    const updateStats = () => {
-      const currentStats = calculateStats();
-      setStats(currentStats);
+    let timeout;
+    const handleStorageChange = () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        setStats(calculateStats());
+      }, 200);
     };
 
-    updateStats();
-
-    // Update stats when localStorage changes
-    const handleStorageChange = () => updateStats();
     window.addEventListener('storage', handleStorageChange);
-
     return () => {
+      clearTimeout(timeout);
       window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
 
-  /**
-   * Handle resetting all progress data
-   */
   const handleResetProgress = () => {
-    if (
-      window.confirm(
-        'Are you sure you want to reset all progress? This cannot be undone.'
-      )
-    ) {
+    if (window.confirm('Are you sure you want to reset all progress?')) {
       localStorage.removeItem('quizAnswers');
-      setStats(calculateStats()); // Refresh with empty stats
+      localStorage.removeItem('manualMasteryOverrides');
+      setStats(calculateStats());
     }
   };
 
@@ -70,7 +117,6 @@ const StatsPanel = () => {
         Your Progress
       </Typography>
 
-      {/* Progress bar with accuracy */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
         <Box sx={{ width: '100%', mr: 2 }}>
           <LinearProgress
@@ -84,15 +130,7 @@ const StatsPanel = () => {
         </Typography>
       </Box>
 
-      {/* Stats chips */}
-      <Box
-        sx={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 1,
-          mb: 2,
-          '& > *': { flex: '1 1 auto', minWidth: '120px' },
-        }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
         <Chip
           label={`✅ Correct: ${stats.correct}`}
           color='success'
@@ -115,7 +153,6 @@ const StatsPanel = () => {
         />
       </Box>
 
-      {/* Domain breakdown */}
       {Object.keys(stats.domains).length > 0 && (
         <>
           <Divider sx={{ my: 2 }} />
@@ -143,7 +180,6 @@ const StatsPanel = () => {
         </>
       )}
 
-      {/* Reset button */}
       <Button
         variant='outlined'
         color='error'
