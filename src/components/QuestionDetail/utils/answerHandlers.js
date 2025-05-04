@@ -1,8 +1,14 @@
 /**
+ * answerHandlers.js - Complete and validated version
+ * Handles all answer-related operations including:
+ * - Answer validation
+ * - Progress tracking
+ * - Statistics calculation
+ * - State management
+ */
+
+/**
  * Normalizes answer text for consistent comparison
- * - Removes 'text-' prefix (case-insensitive)
- * - Replaces underscores and hyphens with spaces
- * - Trims whitespace and converts to lowercase
  * @param {string} text - Raw answer text
  * @returns {string} Normalized text
  */
@@ -11,22 +17,73 @@ export const normalizeAnswerText = (text) => {
   return text
     .toString()
     .replace(/^text-/i, '')
-    .replace(/[_-]/g, ' ') // Both underscores and hyphens
-    .replace(/\s+/g, ' ') // Collapse multiple spaces
+    .replace(/[_-]/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
 };
 
 /**
+ * Calculates user statistics from saved answers
+ * @returns {object} Stats with correct, incorrect, total, accuracy, and domains
+ */
+export const calculateStats = () => {
+  const defaultStats = {
+    correct: 0,
+    incorrect: 0,
+    total: 0,
+    accuracy: 0,
+    domains: {},
+  };
+
+  try {
+    const savedData = localStorage.getItem('quizAnswers');
+    if (!savedData) return defaultStats;
+
+    const savedAnswers = JSON.parse(savedData);
+    if (!savedAnswers || typeof savedAnswers !== 'object') {
+      return defaultStats;
+    }
+
+    const answers = Object.values(savedAnswers);
+    const correct = answers.filter((a) => a?.isCorrect).length;
+    const incorrect = answers.filter((a) => !a?.isCorrect).length;
+    const total = correct + incorrect;
+
+    // Calculate domain breakdown
+    const domains = {};
+    answers.forEach((answer) => {
+      if (!answer?.domain) return;
+
+      if (!domains[answer.domain]) {
+        domains[answer.domain] = { correct: 0, total: 0 };
+      }
+      domains[answer.domain].total++;
+      if (answer.isCorrect) {
+        domains[answer.domain].correct++;
+      }
+    });
+
+    return {
+      correct,
+      incorrect,
+      total,
+      accuracy: total > 0 ? Math.round((correct / total) * 100) : 0,
+      domains,
+    };
+  } catch (error) {
+    console.error('Error calculating stats:', error);
+    return defaultStats;
+  }
+};
+
+/**
  * Handles answer submission and validation
- * - Compares selected answer IDs with correct answer IDs
- * - Supports both single and multiple answer questions
- * - Saves results to localStorage for persistence
- * @param {object} question - The full question object
- * @param {array} selected - Array of selected answer IDs
- * @param {function} setIsCorrect - State setter for correctness
- * @param {function} setSubmitted - State setter for submission status
- * @returns {boolean} Whether the answer was correct
+ * @param {object} question - Current question
+ * @param {array} selected - Selected answer IDs
+ * @param {function} setIsCorrect - Correctness state setter
+ * @param {function} setSubmitted - Submission state setter
+ * @returns {boolean} Whether submission was correct
  */
 export const handleSubmit = async (
   question,
@@ -38,32 +95,22 @@ export const handleSubmit = async (
 
   try {
     // Debug: Log raw submission data
-    console.log('Submission Debug - Raw Data:', {
+    console.log('Submission Debug:', {
       questionId: question._id,
       selectedAnswers: selected,
       correctAnswerIds: question.answers
         .filter((a) => a.isCorrect)
         .map((a) => a._id),
-      questionText: question.text,
+      questionText: question.question,
     });
 
-    // Determine correctness by comparing IDs directly
+    // Determine correctness
     const isCorrect =
       question.type === 'single'
-        ? // For single-answer: check if selected ID matches any correct answer ID
-          question.answers.some((a) => a.isCorrect && selected[0] === a._id)
-        : // For multi-answer: check all correct answers are selected
-          question.answers
+        ? question.answers.some((a) => a.isCorrect && selected[0] === a._id)
+        : question.answers
             .filter((a) => a.isCorrect)
             .every((correctAnswer) => selected.includes(correctAnswer._id));
-
-    console.log('Validation Debug:', {
-      selectedAnswerIds: selected,
-      correctAnswerIds: question.answers
-        .filter((a) => a.isCorrect)
-        .map((a) => a._id),
-      isCorrect,
-    });
 
     // Update state
     setIsCorrect(isCorrect);
@@ -77,16 +124,16 @@ export const handleSubmit = async (
       selected,
       isCorrect,
       timestamp: new Date().toISOString(),
-      questionText: question.text,
+      questionId: question.questionId,
+      questionText: question.question,
+      domain: question.domain,
+      type: question.type,
     };
     localStorage.setItem('quizAnswers', JSON.stringify(savedAnswers));
 
     return isCorrect;
   } catch (error) {
-    console.error('Submission Error:', {
-      error: error.message,
-      questionId: question?._id,
-    });
+    console.error('Submission Error:', error);
     setIsCorrect(false);
     setSubmitted(true);
     return false;
@@ -95,15 +142,27 @@ export const handleSubmit = async (
 
 /**
  * Resets question state
- * - Clears selected answers
- * - Resets submission and correctness states
- * @param {function} setSelected - State setter for selected answers
- * @param {function} setSubmitted - State setter for submission status
- * @param {function} setIsCorrect - State setter for correctness
- **/
+ * @param {function} setSelected - Selected answers setter
+ * @param {function} setSubmitted - Submitted state setter
+ * @param {function} setIsCorrect - Correctness state setter
+ */
 export const resetQuestion = (setSelected, setSubmitted, setIsCorrect) => {
   setSelected([]);
   setSubmitted(false);
   setIsCorrect(false);
   console.log('Question state reset');
+};
+
+/**
+ * Resets all progress tracking data
+ * @returns {boolean} Whether reset was successful
+ */
+export const resetAllProgress = () => {
+  try {
+    localStorage.removeItem('quizAnswers');
+    return true;
+  } catch (error) {
+    console.error('Error resetting progress:', error);
+    return false;
+  }
 };

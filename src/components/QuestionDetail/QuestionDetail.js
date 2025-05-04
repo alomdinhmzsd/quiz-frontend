@@ -1,5 +1,4 @@
-// ✅ FINAL: Fully commented and JSDoc-documented version of QuestionDetail.js
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Container, Box, CircularProgress, Alert, Button } from '@mui/material';
 import { useQuestionData } from './hooks/useQuestionData';
@@ -16,7 +15,6 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 /**
  * Normalize text values for duplicate detection.
  * Removes prefixes, underscores, and trims/lowers the case.
- *
  * @param {string} text - Text value to normalize
  * @returns {string} - Cleaned normalized string
  */
@@ -29,7 +27,6 @@ const normalizeAnswerText = (text) =>
 
 /**
  * Flag answers that are textual duplicates for display warnings.
- *
  * @param {Array} answers - Array of answer objects
  * @returns {Array} - Array with `isDuplicate` and `normalizedText` fields
  */
@@ -47,7 +44,6 @@ const detectDuplicates = (answers) => {
 
 /**
  * Derives a unique key for rendering an answer.
- *
  * @param {Object} answer - Answer object
  * @returns {string} - Unique ID for that answer
  */
@@ -56,7 +52,6 @@ const getAnswerId = (answer) =>
 
 /**
  * Shuffles answers array using Fisher-Yates algorithm.
- *
  * @param {Array} array - Answers array
  * @returns {Array} - Shuffled array
  */
@@ -94,8 +89,25 @@ const QuestionDetail = () => {
   const [jumpToId, setJumpToId] = useState('');
 
   /**
-   * Reset internal state and reshuffle answers when question changes.
+   * Tracks question attempt history from localStorage
+   * @type {Object|null}
    */
+  const questionStats = useMemo(() => {
+    try {
+      const savedAnswers = JSON.parse(
+        localStorage.getItem('quizAnswers') || '{}'
+      );
+      const answer = savedAnswers[id];
+      if (!answer) return null;
+      return {
+        isCorrect: answer.isCorrect,
+        lastAttempt: new Date(answer.timestamp).toLocaleString(),
+      };
+    } catch {
+      return null;
+    }
+  }, [id]);
+
   /**
    * Reset state (answers, correctness) when question ID changes.
    */
@@ -190,6 +202,7 @@ const QuestionDetail = () => {
             return false;
           }
         }}
+        questionStats={questionStats}
       />
 
       <ResetDialog
@@ -267,6 +280,9 @@ const LoadingState = () => (
 
 /**
  * Display error UI if question fails to load.
+ * @param {Object} props - Component props
+ * @param {Error|null} props.error - Error object
+ * @param {function} props.navigate - Navigation function
  */
 const ErrorState = ({ error, navigate }) => (
   <Container maxWidth='md' sx={{ py: 4 }}>

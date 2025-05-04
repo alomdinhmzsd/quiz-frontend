@@ -16,6 +16,7 @@ import { motion } from 'framer-motion';
 import { fetchQuestions } from './questionService';
 import { filterQuestions, sortQuestions, getUniqueDomains } from './utils';
 import FilterControls from './FilterControls';
+import StatsPanel from '../StatsPanel'; // Add this import
 
 /**
  * QuestionList component - Displays a filterable, sortable list of questions
@@ -98,6 +99,7 @@ const QuestionList = ({ domainName = 'all' }) => {
   // Main render
   return (
     <Container maxWidth='md' sx={{ py: 4 }}>
+      <StatsPanel />
       {/* Filter controls */}
       <FilterControls
         filters={filters}
