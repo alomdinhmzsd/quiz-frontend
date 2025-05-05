@@ -41,24 +41,24 @@ const calculateStats = () => {
     const domains = {};
     const questionStats = {};
 
-    answers.forEach((answer) => {
-      if (answer?.domain) {
-        if (!domains[answer.domain]) {
-          domains[answer.domain] = { correct: 0, total: 0 };
+    Object.values(savedAnswers).forEach((entry) => {
+      if (entry?.domain) {
+        if (!domains[entry.domain]) {
+          domains[entry.domain] = { correct: 0, total: 0 };
         }
-        domains[answer.domain].total++;
-        if (answer.isCorrect) {
-          domains[answer.domain].correct++;
+        domains[entry.domain].total++;
+        if (entry.isCorrect) {
+          domains[entry.domain].correct++;
         }
       }
 
-      if (answer?.questionId) {
-        if (!questionStats[answer.questionId]) {
-          questionStats[answer.questionId] = { correct: 0, total: 0 };
+      if (entry?.questionId) {
+        if (!questionStats[entry.questionId]) {
+          questionStats[entry.questionId] = { correct: 0, total: 0 };
         }
-        questionStats[answer.questionId].total++;
-        if (answer.isCorrect) {
-          questionStats[answer.questionId].correct++;
+        questionStats[entry.questionId].total++;
+        if (entry.isCorrect) {
+          questionStats[entry.questionId].correct++;
         }
       }
     });

@@ -53,6 +53,8 @@
     ]
   },
   "devDependencies": {
+    "ajv": "^8.17.1",
+    "ajv-keywords": "^5.1.0",
     "env-cmd": "^10.1.0",
     "pwa-asset-generator": "^8.0.4"
   }

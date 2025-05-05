@@ -171,7 +171,6 @@ export const handleSubmit = async (
     };
 
     localStorage.setItem('quizAnswers', JSON.stringify(savedAnswers));
-    window.dispatchEvent(new Event('storage'));
 
     return isCorrect;
   } catch (error) {

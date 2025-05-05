@@ -1,3 +1,5 @@
+// 📁 src/components/QuestionList.js
+// [imports remain unchanged]
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -29,54 +31,26 @@ import { fetchQuestions } from './questionService';
 import { filterQuestions, sortQuestions } from './utils';
 import StatsPanel from '../StatsPanel';
 
-/**
- * MANUAL MASTERY UTILITIES
- * Functions to handle manual mastery overrides
- */
+// Manual mastery utilities remain unchanged...
 const MANUAL_MASTERY_KEY = 'manualMasteryOverrides';
-
-/**
- * Set manual mastery status for a question
- * @param {string} questionId - The question ID
- * @param {boolean} isMastered - Whether to mark as mastered
- */
 const setManualMastery = (questionId, isMastered) => {
   const overrides = JSON.parse(localStorage.getItem(MANUAL_MASTERY_KEY)) || {};
   overrides[questionId] = isMastered;
   localStorage.setItem(MANUAL_MASTERY_KEY, JSON.stringify(overrides));
-  window.dispatchEvent(new Event('storage')); // Trigger stats update
+  window.dispatchEvent(new Event('storage'));
 };
-
-/**
- * Get mastery status (checks manual override first, then automatic stats)
- * @param {string} questionId - The question ID
- * @returns {boolean} Whether the question is mastered
- */
 const getMasteryStatus = (questionId) => {
-  // Check manual override first
   const overrides = JSON.parse(localStorage.getItem(MANUAL_MASTERY_KEY)) || {};
   if (questionId in overrides) return overrides[questionId];
 
-  // Fall back to automatic mastery (5+ correct answers)
-  const stats = JSON.parse(localStorage.getItem('quizAnswers')) || {};
-  const questionStats = stats[questionId] || { correct: 0 };
-  return questionStats.correct >= 5;
+  const savedAnswers = JSON.parse(localStorage.getItem('quizAnswers')) || {};
+  const questionAttempts = Object.values(savedAnswers).filter(
+    (a) => a.questionId === questionId
+  );
+  const correctCount = questionAttempts.filter((a) => a.isCorrect).length;
+  return correctCount >= 5;
 };
 
-/**
- * QuestionList component - Displays a filterable, sortable list of questions with performance tracking
- *
- * Features:
- * - Performance indicators for each question
- * - Organized domain filters
- * - Auto-hide mastered questions (manual or automatic)
- * - Manual mastery override controls
- * - Preserved stats tracking
- *
- * @param {object} props - Component props
- * @param {string} [props.domainName='all'] - Default domain filter
- * @returns {JSX.Element} Interactive question list interface
- */
 const QuestionList = ({ domainName = 'all' }) => {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -89,7 +63,6 @@ const QuestionList = ({ domainName = 'all' }) => {
   });
   const [hideMastered, setHideMastered] = useState(false);
 
-  // Load questions on component mount
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -104,105 +77,77 @@ const QuestionList = ({ domainName = 'all' }) => {
     loadData();
   }, []);
 
-  // In QuestionList.js component
-  useEffect(() => {
-    const handleStorageChange = () => {
-      setQuestions((prev) => [...prev]); // Force re-render
-    };
+  // const [tick, setTick] = useState(0); // used to force re-render
 
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+  // useEffect(() => {
+  //   let timeout;
+  //   const handleStorageChange = () => {
+  //     clearTimeout(timeout);
+  //     timeout = setTimeout(() => {
+  //       // Instead of setQuestions(), force a render with a tick
+  //       setTick((t) => t + 1);
+  //     }, 200);
+  //   };
 
-  /**
-   * Get performance stats for a specific question
-   * @param {string} questionId - The question ID to get stats for
-   * @returns {object} Correct and total attempts count
-   */
+  //   window.addEventListener('storage', handleStorageChange);
+  //   return () => {
+  //     clearTimeout(timeout);
+  //     window.removeEventListener('storage', handleStorageChange);
+  //   };
+  // }, []);
+
   const getQuestionStats = (questionId) => {
     try {
-      const normalizedId = questionId.trim().toLowerCase();
-      const savedAnswers = JSON.parse(
-        localStorage.getItem('quizAnswers') || '{}'
+      const savedAnswers =
+        JSON.parse(localStorage.getItem('quizAnswers')) || {};
+      const attempts = Object.values(savedAnswers).filter(
+        (a) => a.questionId === questionId
       );
 
-      // Filter for unique most recent attempts only
-      const uniqueAttempts = Object.values(savedAnswers).reduce(
-        (acc, attempt) => {
-          if (attempt.questionId === normalizedId) {
-            if (!acc[attempt.attemptId]) {
-              acc[attempt.attemptId] = attempt;
-            }
-          }
-          return acc;
-        },
-        {}
-      );
-
-      const attempts = Object.values(uniqueAttempts);
-
-      return {
-        correct: attempts.filter((a) => a.isCorrect).length,
-        total: attempts.length,
-        mastered: attempts.filter((a) => a.isCorrect).length >= 5,
-      };
+      const correct = attempts.filter((a) => a.isCorrect).length;
+      const total = attempts.length;
+      const mastered = correct >= 5;
+      return { correct, total, mastered };
     } catch {
       return { correct: 0, total: 0, mastered: false };
     }
   };
 
-  /**
-   * Group domains by their main category (e.g., "AWS Compute" -> "AWS")
-   * @returns {object} Grouped domains by category
-   */
   const getGroupedDomains = () => {
     return questions.reduce((acc, question) => {
       if (!question.domain) return acc;
-
       const category = question.domain.split(' ')[0];
-      if (!acc[category]) {
-        acc[category] = new Set();
-      }
+      if (!acc[category]) acc[category] = new Set();
       acc[category].add(question.domain);
       return acc;
     }, {});
   };
 
-  // Apply filters and sorting
   const filteredQuestions = filterQuestions(questions, filters).filter((q) => {
     if (!hideMastered) return true;
-    return !getMasteryStatus(q.questionId); // Hide if manually or automatically mastered
+    return !getMasteryStatus(q.questionId);
   });
 
   const sortedQuestions = sortQuestions(filteredQuestions, filters.sortOrder);
   const groupedDomains = getGroupedDomains();
 
-  // Loading state
   if (loading) {
     return (
       <Box
         display='flex'
         justifyContent='center'
         alignItems='center'
-        minHeight='80vh'
-        aria-live='polite'
-        aria-busy='true'>
-        <CircularProgress aria-label='Loading questions' />
+        minHeight='80vh'>
+        <CircularProgress />
       </Box>
     );
   }
 
-  // Error state
   if (error) {
     return (
       <Container maxWidth='md' sx={{ py: 4 }}>
-        <Alert severity='error' sx={{ mb: 2 }} aria-live='assertive'>
-          Error loading questions: {error}
-        </Alert>
-        <Button
-          variant='contained'
-          onClick={() => window.location.reload()}
-          aria-label='Retry loading questions'>
+        <Alert severity='error'>{`Error loading questions: ${error}`}</Alert>
+        <Button variant='contained' onClick={() => window.location.reload()}>
           Retry
         </Button>
       </Container>
@@ -213,8 +158,8 @@ const QuestionList = ({ domainName = 'all' }) => {
     <Container maxWidth='md' sx={{ py: 4 }}>
       <StatsPanel />
 
-      {/* Filter controls */}
-      <Box sx={{ mb: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* Filters */}
+      <Box sx={{ mb: 4 }}>
         <FormControl fullWidth sx={{ mb: 2 }}>
           <InputLabel id='domain-filter-label'>Domain</InputLabel>
           <Select
@@ -225,9 +170,9 @@ const QuestionList = ({ domainName = 'all' }) => {
               setFilters((prev) => ({ ...prev, domain: e.target.value }))
             }>
             <MenuItem value='all'>All Domains</MenuItem>
-            {Object.entries(groupedDomains).map(([category, domains]) => (
-              <optgroup label={category} key={category}>
-                {Array.from(domains).map((domain) => (
+            {Object.entries(groupedDomains).map(([cat, domains]) => (
+              <optgroup label={cat} key={cat}>
+                {[...domains].map((domain) => (
                   <MenuItem value={domain} key={domain}>
                     {domain}
                   </MenuItem>
@@ -236,28 +181,23 @@ const QuestionList = ({ domainName = 'all' }) => {
             ))}
           </Select>
         </FormControl>
-
-        <Box sx={{ display: 'flex', gap: 3 }}>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={hideMastered}
-                onChange={() => setHideMastered(!hideMastered)}
-              />
-            }
-            label='Hide mastered questions'
-          />
-        </Box>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={hideMastered}
+              onChange={() => setHideMastered(!hideMastered)}
+            />
+          }
+          label='Hide mastered questions'
+        />
       </Box>
 
-      {/* Question list */}
+      {/* Question cards */}
       {sortedQuestions.length === 0 ? (
-        <Alert severity='info' aria-live='polite'>
-          No questions match your filters
-        </Alert>
+        <Alert severity='info'>No questions match your filters</Alert>
       ) : (
         sortedQuestions.map((question, index) => {
-          const questionStats = getQuestionStats(question.questionId);
+          const stats = getQuestionStats(question.questionId);
           const isMastered = getMasteryStatus(question.questionId);
 
           return (
@@ -291,19 +231,17 @@ const QuestionList = ({ domainName = 'all' }) => {
                       size='small'
                       color='secondary'
                     />
-                    {questionStats.total > 0 && (
-                      <Chip
-                        label={`${questionStats.correct}/${questionStats.total}`}
-                        size='small'
-                        color={
-                          questionStats.correct === questionStats.total
-                            ? 'success'
-                            : questionStats.correct > 0
-                            ? 'warning'
-                            : 'error'
-                        }
-                      />
-                    )}
+                    <Chip
+                      label={`${stats.correct}/${stats.total}`}
+                      size='small'
+                      color={
+                        stats.correct >= 5
+                          ? 'success'
+                          : stats.correct > 0
+                          ? 'warning'
+                          : 'error'
+                      }
+                    />
                   </Stack>
 
                   <CardActions sx={{ justifyContent: 'space-between' }}>
@@ -314,7 +252,6 @@ const QuestionList = ({ domainName = 'all' }) => {
                       size='small'>
                       Practice Question
                     </Button>
-
                     {isMastered ? (
                       <Button
                         startIcon={<CloseIcon />}
