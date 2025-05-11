@@ -71,7 +71,7 @@ const QuestionHeader = ({
     {/* Chip row showing domain, question type, and correctness status */}
     <Stack direction='row' spacing={1} sx={{ mb: 2 }}>
       {/* Domain chip (e.g., AWS, JavaScript) */}
-      <Chip label={question.domain} size='small' />
+      {/* <Chip label={question.domain} size='small' /> */}
 
       {/* Question type chip (Single/Multiple answer) */}
       <Chip

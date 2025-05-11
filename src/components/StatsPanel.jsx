@@ -1,4 +1,3 @@
-// 📁 src/components/StatsPanel.js
 import React, { useEffect, useState } from 'react';
 import {
   Box,
@@ -7,6 +6,9 @@ import {
   Chip,
   Button,
   Paper,
+  FormControl,
+  InputLabel,
+  Divider,
 } from '@mui/material';
 
 const calculateStats = () => {
@@ -85,6 +87,8 @@ const calculateStats = () => {
 
 const StatsPanel = () => {
   const [stats, setStats] = useState(calculateStats());
+  const [startId, setStartId] = useState('saa-q001');
+  const [endId, setEndId] = useState('saa-q065');
 
   useEffect(() => {
     let timeout;
@@ -106,8 +110,17 @@ const StatsPanel = () => {
     if (window.confirm('Are you sure you want to reset all progress?')) {
       localStorage.removeItem('quizAnswers');
       localStorage.removeItem('manualMasteryOverrides');
+      localStorage.removeItem('examStartId');
+      localStorage.removeItem('examEndId');
       setStats(calculateStats());
     }
+  };
+
+  const handleStartExam = () => {
+    localStorage.setItem('examStartId', startId);
+    localStorage.setItem('examEndId', endId);
+    window.dispatchEvent(new Event('storage'));
+    window.location.reload(); // 👈 Optional but useful if filtering doesn't live-update
   };
 
   return (
@@ -152,14 +165,89 @@ const StatsPanel = () => {
         />
       </Box>
 
-      {/* Domain breakdown UI hidden for mobile clarity */}
+      <Divider sx={{ my: 2 }} />
+      <Typography variant='subtitle1' gutterBottom>
+        Load Questions by Range
+      </Typography>
+
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          mb: 3,
+          backgroundColor: '#1e1e1e',
+          p: 2,
+          borderRadius: 2,
+        }}>
+        <Typography variant='subtitle1' sx={{ mb: 1, color: '#ccc' }}>
+          Load Questions by Range
+        </Typography>
+
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          <FormControl fullWidth>
+            <InputLabel
+              shrink
+              htmlFor='start-id'
+              sx={{ color: '#ccc' }}></InputLabel>
+            <input
+              id='start-id'
+              type='text'
+              value={startId}
+              onChange={(e) => setStartId(e.target.value)}
+              placeholder='e.g., saa-q001'
+              style={{
+                padding: '12px',
+                fontSize: '1rem',
+                width: '100%',
+                border: '1px solid #444',
+                borderRadius: '6px',
+                backgroundColor: '#111',
+                color: '#fff',
+              }}
+            />
+          </FormControl>
+
+          <FormControl fullWidth>
+            <InputLabel
+              shrink
+              htmlFor='end-id'
+              sx={{ color: '#ccc' }}></InputLabel>
+            <input
+              id='end-id'
+              type='text'
+              value={endId}
+              onChange={(e) => setEndId(e.target.value)}
+              placeholder='e.g., saa-q065'
+              style={{
+                padding: '12px',
+                fontSize: '1rem',
+                width: '100%',
+                border: '1px solid #444',
+                borderRadius: '6px',
+                backgroundColor: '#111',
+                color: '#fff',
+              }}
+            />
+          </FormControl>
+        </Box>
+      </Box>
+
+      <Button
+        variant='contained'
+        color='primary'
+        onClick={handleStartExam}
+        fullWidth
+        sx={{ mb: 2 }}>
+        Start Exam
+      </Button>
 
       <Button
         variant='outlined'
         color='error'
         size='small'
         onClick={handleResetProgress}
-        sx={{ mt: 2 }}>
+        fullWidth>
         Reset All Progress
       </Button>
     </Paper>

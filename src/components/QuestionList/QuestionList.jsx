@@ -1,5 +1,5 @@
-// 📁 src/components/QuestionList.js
-// [imports remain unchanged]
+// 📁 src/components/QuestionList.jsx
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -31,14 +31,15 @@ import { fetchQuestions } from './questionService';
 import { filterQuestions, sortQuestions } from './utils';
 import StatsPanel from '../StatsPanel';
 
-// Manual mastery utilities remain unchanged...
 const MANUAL_MASTERY_KEY = 'manualMasteryOverrides';
+
 const setManualMastery = (questionId, isMastered) => {
   const overrides = JSON.parse(localStorage.getItem(MANUAL_MASTERY_KEY)) || {};
   overrides[questionId] = isMastered;
   localStorage.setItem(MANUAL_MASTERY_KEY, JSON.stringify(overrides));
   window.dispatchEvent(new Event('storage'));
 };
+
 const getMasteryStatus = (questionId) => {
   const overrides = JSON.parse(localStorage.getItem(MANUAL_MASTERY_KEY)) || {};
   if (questionId in overrides) return overrides[questionId];
@@ -77,25 +78,6 @@ const QuestionList = ({ domainName = 'all' }) => {
     loadData();
   }, []);
 
-  // const [tick, setTick] = useState(0); // used to force re-render
-
-  // useEffect(() => {
-  //   let timeout;
-  //   const handleStorageChange = () => {
-  //     clearTimeout(timeout);
-  //     timeout = setTimeout(() => {
-  //       // Instead of setQuestions(), force a render with a tick
-  //       setTick((t) => t + 1);
-  //     }, 200);
-  //   };
-
-  //   window.addEventListener('storage', handleStorageChange);
-  //   return () => {
-  //     clearTimeout(timeout);
-  //     window.removeEventListener('storage', handleStorageChange);
-  //   };
-  // }, []);
-
   const getQuestionStats = (questionId) => {
     try {
       const savedAnswers =
@@ -123,7 +105,20 @@ const QuestionList = ({ domainName = 'all' }) => {
     }, {});
   };
 
-  const filteredQuestions = filterQuestions(questions, filters).filter((q) => {
+  // 🧠 Apply exam range filtering here
+  const startId = localStorage.getItem('examStartId');
+  const endId = localStorage.getItem('examEndId');
+  const rangeFilteredQuestions =
+    startId && endId
+      ? questions.filter(
+          (q) => q.questionId >= startId && q.questionId <= endId
+        )
+      : questions;
+
+  const filteredQuestions = filterQuestions(
+    rangeFilteredQuestions,
+    filters
+  ).filter((q) => {
     if (!hideMastered) return true;
     return !getMasteryStatus(q.questionId);
   });
@@ -160,27 +155,29 @@ const QuestionList = ({ domainName = 'all' }) => {
 
       {/* Filters */}
       <Box sx={{ mb: 4 }}>
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel id='domain-filter-label'>Domain</InputLabel>
-          <Select
-            labelId='domain-filter-label'
-            value={filters.domain}
-            label='Domain'
-            onChange={(e) =>
-              setFilters((prev) => ({ ...prev, domain: e.target.value }))
-            }>
-            <MenuItem value='all'>All Domains</MenuItem>
-            {Object.entries(groupedDomains).map(([cat, domains]) => (
-              <optgroup label={cat} key={cat}>
-                {[...domains].map((domain) => (
-                  <MenuItem value={domain} key={domain}>
-                    {domain}
-                  </MenuItem>
-                ))}
-              </optgroup>
-            ))}
-          </Select>
-        </FormControl>
+        {false && (
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel id='domain-filter-label'>Domain</InputLabel>
+            <Select
+              labelId='domain-filter-label'
+              value={filters.domain}
+              label='Domain'
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, domain: e.target.value }))
+              }>
+              <MenuItem value='all'>All Domains</MenuItem>
+              {Object.entries(groupedDomains).map(([cat, domains]) => (
+                <optgroup label={cat} key={cat}>
+                  {[...domains].map((domain) => (
+                    <MenuItem value={domain} key={domain}>
+                      {domain}
+                    </MenuItem>
+                  ))}
+                </optgroup>
+              ))}
+            </Select>
+          </FormControl>
+        )}
         <FormControlLabel
           control={
             <Switch
@@ -221,7 +218,7 @@ const QuestionList = ({ domainName = 'all' }) => {
                   </Box>
 
                   <Stack direction='row' spacing={1} sx={{ my: 1 }}>
-                    <Chip label={question.domain} size='small' />
+                    {/* Domain label removed */}
                     <Chip
                       label={
                         question.type === 'single'
