@@ -1,13 +1,3 @@
-/**
- * index.js - STABLE PWA ENTRY v4.0
- *
- * Purpose:
- * - Registers service worker safely
- * - Handles iOS cache bugs
- * - Forces update if no controller
- * - Handles all registration errors gracefully
- */
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
@@ -27,7 +17,6 @@ window.addEventListener('load', () => {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const swPath = '/service-worker.js';
 
-    // Optional meta for iOS
     if (isIOS) {
       const meta = document.createElement('meta');
       meta.name = 'apple-mobile-web-app-capable';
@@ -35,7 +24,6 @@ window.addEventListener('load', () => {
       document.head.appendChild(meta);
     }
 
-    // Register the service worker
     navigator.serviceWorker
       .register(swPath, {
         scope: '/',
@@ -43,17 +31,12 @@ window.addEventListener('load', () => {
       })
       .then((registration) => {
         console.log('[SW] Registered:', registration);
-
-        // Force update attempt
         registration.update();
-
-        // Trigger reload if no active controller
         if (!navigator.serviceWorker.controller) {
           console.warn('[SW] No active controller. Reloading...');
           window.location.reload();
         }
 
-        // Optional manual cache refresh for dev
         window.clearCacheAndReload = () => {
           caches.keys().then((keys) =>
             Promise.all(keys.map((k) => caches.delete(k))).then(() => {

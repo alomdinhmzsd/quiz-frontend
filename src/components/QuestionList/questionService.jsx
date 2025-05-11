@@ -9,11 +9,11 @@ import axios from 'axios';
  */
 export const fetchQuestions = async () => {
   try {
-    console.log('API Base URL:', process.env.REACT_APP_API_URL);
+    console.log('API Base URL:', import.meta.env.VITE_APP_API_URL);
 
     // Make API call to get all questions
     const response = await axios.get(
-      `${process.env.REACT_APP_API_URL}/api/questions`
+      `${import.meta.env.VITE_APP_API_URL}/api/questions`
     );
 
     // Return the data or empty array

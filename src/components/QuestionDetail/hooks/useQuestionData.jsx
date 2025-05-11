@@ -27,13 +27,13 @@ export const useQuestionData = (id) => {
 
         // Parallel API requests
         const [allQuestionsRes, questionRes] = await Promise.all([
-          axios.get(`${process.env.REACT_APP_API_URL}/api/questions`),
+          axios.get(`${import.meta.env.VITE_APP_API_URL}/api/questions`),
 
           axios
-            .get(`${process.env.REACT_APP_API_URL}/api/questions/${id}`)
+            .get(`${import.meta.env.VITE_APP_API_URL}/api/questions/${id}`)
             .catch(async () => {
               return axios.get(
-                `${process.env.REACT_APP_API_URL}/api/questions/${id}`,
+                `${import.meta.env.VITE_APP_API_URL}/api/questions/${id}`,
                 { params: { questionId: id } }
               );
             }),
@@ -48,7 +48,7 @@ export const useQuestionData = (id) => {
           const cache = await caches.open('quiz-app-dynamic');
           const responseClone = new Response(JSON.stringify(questionRes.data));
           await cache.put(
-            `${process.env.REACT_APP_API_URL}/api/questions/${id}`,
+            `${import.meta.env.VITE_APP_API_URL}/api/questions/${id}`,
             responseClone
           );
         }
@@ -66,4 +66,4 @@ export const useQuestionData = (id) => {
 };
 
 // Debug log
-console.log('API Base URL:', process.env.REACT_APP_API_URL);
+console.log('API Base URL:', import.meta.env.VITE_APP_API_URL);

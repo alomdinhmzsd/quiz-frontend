@@ -27,12 +27,9 @@
     "workbox-webpack-plugin": "^7.3.0"
   },
   "scripts": {
-    "start": "env-cmd -f .env.development react-scripts start",
-    "build": "react-scripts build && cp public/_redirects build/",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject",
-    "generate-pwa-assets": "pwa-asset-generator public/logo512.png public -i public/index.html -m public/manifest.json --icon-only --favicon --opaque false --padding \"20%\" --type png",
-    "prebuild": "npm run generate-pwa-assets"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "eslintConfig": {
     "extends": [
@@ -53,9 +50,11 @@
     ]
   },
   "devDependencies": {
+    "@vitejs/plugin-react": "^4.4.1",
     "ajv": "^8.17.1",
     "ajv-keywords": "^5.1.0",
     "env-cmd": "^10.1.0",
-    "pwa-asset-generator": "^8.0.4"
+    "pwa-asset-generator": "^8.0.4",
+    "vite": "^6.3.5"
   }
 }

@@ -6,9 +6,11 @@
  */
 
 /**
- * config.js - Application Configuration
- * Updated to enforce HTTPS
+ * config.js - Application Configuration (Vite-compatible)
  */
-export const API_BASE_URL = process.env.REACT_APP_API_URL?.startsWith('http://')
-  ? process.env.REACT_APP_API_URL.replace('http://', 'https://')
-  : process.env.REACT_APP_API_URL || 'https://quiz-backend-kb5w.onrender.com';
+
+const rawUrl = import.meta.env.VITE_APP_API_URL;
+
+export const API_BASE_URL = rawUrl?.startsWith('http://')
+  ? rawUrl.replace('http://', 'https://')
+  : rawUrl || 'https://quiz-backend-kb5w.onrender.com';

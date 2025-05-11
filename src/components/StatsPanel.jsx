@@ -6,7 +6,6 @@ import {
   LinearProgress,
   Chip,
   Button,
-  Divider,
   Paper,
 } from '@mui/material';
 
@@ -153,32 +152,7 @@ const StatsPanel = () => {
         />
       </Box>
 
-      {Object.keys(stats.domains).length > 0 && (
-        <>
-          <Divider sx={{ my: 2 }} />
-          <Typography variant='subtitle1' gutterBottom>
-            By Domain:
-          </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            {Object.entries(stats.domains).map(([domain, data]) => (
-              <Chip
-                key={domain}
-                label={`${domain}: ${Math.round(
-                  (data.correct / data.total) * 100
-                )}%`}
-                sx={{
-                  backgroundColor:
-                    data.correct / data.total >= 0.7
-                      ? 'success.light'
-                      : data.correct / data.total >= 0.4
-                      ? 'warning.light'
-                      : 'error.light',
-                }}
-              />
-            ))}
-          </Box>
-        </>
-      )}
+      {/* Domain breakdown UI hidden for mobile clarity */}
 
       <Button
         variant='outlined'
