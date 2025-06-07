@@ -20,6 +20,7 @@ import {
   FormControl,
   InputLabel,
   CardActions,
+  TextField,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import {
@@ -60,6 +61,7 @@ const QuestionList = ({ domainName = 'all' }) => {
     domain: domainName,
     type: 'all',
     searchTerm: '',
+    questionTextSearch: '', // ✅ new field
     sortOrder: 'asc',
   });
   const [hideMastered, setHideMastered] = useState(false);
@@ -115,13 +117,18 @@ const QuestionList = ({ domainName = 'all' }) => {
         )
       : questions;
 
-  const filteredQuestions = filterQuestions(
-    rangeFilteredQuestions,
-    filters
-  ).filter((q) => {
-    if (!hideMastered) return true;
-    return !getMasteryStatus(q.questionId);
-  });
+  const baseFiltered = filterQuestions(rangeFilteredQuestions, filters);
+
+  const filteredQuestions = baseFiltered
+    .filter((q) => {
+      const questionSearch = filters.questionTextSearch.toLowerCase();
+      if (!questionSearch) return true;
+      return q.question.toLowerCase().startsWith(questionSearch);
+    })
+    .filter((q) => {
+      if (!hideMastered) return true;
+      return !getMasteryStatus(q.questionId);
+    });
 
   const sortedQuestions = sortQuestions(filteredQuestions, filters.sortOrder);
   const groupedDomains = getGroupedDomains();
@@ -178,6 +185,22 @@ const QuestionList = ({ domainName = 'all' }) => {
             </Select>
           </FormControl>
         )}
+
+        {/* ✅ NEW: Question Text Search */}
+        <TextField
+          fullWidth
+          label='Search by question text'
+          variant='outlined'
+          value={filters.questionTextSearch}
+          onChange={(e) =>
+            setFilters((prev) => ({
+              ...prev,
+              questionTextSearch: e.target.value,
+            }))
+          }
+          sx={{ mb: 2 }}
+        />
+
         <FormControlLabel
           control={
             <Switch
